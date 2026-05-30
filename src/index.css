@@ -1,0 +1,226 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Fonts ───────────────────────────────────────────────────── */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: var(--font-sans);
+}
+
+/* ═══ FANTASTICAL theme — neutral, Apple-like (default base) ═══ */
+:root {
+  --surface:          #FFFFFF;
+  --surface-sidebar:  #1C1C1E;
+  --surface-elevated: #FFFFFF;
+  --surface-secondary: rgba(0,0,0,0.035);
+  --surface-tertiary:  rgba(0,0,0,0.07);
+  --hover:            rgba(0,0,0,0.045);
+  --border:           rgba(0,0,0,0.10);
+  --border-strong:    rgba(0,0,0,0.16);
+  --grid:             rgba(0,0,0,0.07);
+  --grid-soft:        rgba(0,0,0,0.045);
+  --text-primary:     #1C1C1E;
+  --text-secondary:   rgba(60,60,67,0.62);
+  --text-tertiary:    rgba(60,60,67,0.34);
+  --accent:           #F2453A;
+  --accent-hover:     #e03a30;
+  --shadow-sm:        0 1px 3px rgba(0,0,0,0.06), 0 6px 20px rgba(0,0,0,0.05);
+  --out-fade:         0.42;
+  --r:                12px;
+  --r-sm:             8px;
+}
+
+.dark {
+  --surface:          #0E0E0F;
+  --surface-sidebar:  #1C1C1E;
+  --surface-elevated: #242426;
+  --surface-secondary: rgba(255,255,255,0.05);
+  --surface-tertiary:  rgba(255,255,255,0.10);
+  --hover:            rgba(255,255,255,0.06);
+  --border:           rgba(255,255,255,0.10);
+  --border-strong:    rgba(255,255,255,0.16);
+  --grid:             rgba(255,255,255,0.085);
+  --grid-soft:        rgba(255,255,255,0.05);
+  --text-primary:     #F2F2F2;
+  --text-secondary:   rgba(235,235,245,0.60);
+  --text-tertiary:    rgba(235,235,245,0.32);
+  --accent:           #F2453A;
+  --accent-hover:     #e03a30;
+  --shadow-sm:        0 1px 3px rgba(0,0,0,0.4), 0 8px 28px rgba(0,0,0,0.5);
+  --out-fade:         0.40;
+}
+
+/* ═══ EDITORIAL theme — warm cream + serif display ═══ */
+html[data-design="editorial"] {
+  --font-display: ui-serif, "New York", "Iowan Old Style", Georgia, "Times New Roman", serif;
+
+  --surface:          #FAF6EE;
+  --surface-sidebar:  #2C241D;
+  --surface-elevated: #FFFCF5;
+  --surface-secondary: rgba(74,52,30,0.05);
+  --surface-tertiary:  rgba(74,52,30,0.09);
+  --hover:            rgba(74,52,30,0.05);
+  --border:           rgba(74,52,30,0.13);
+  --border-strong:    rgba(74,52,30,0.22);
+  --grid:             rgba(74,52,30,0.10);
+  --grid-soft:        rgba(74,52,30,0.06);
+  --text-primary:     #2B2118;
+  --text-secondary:   rgba(60,44,28,0.64);
+  --text-tertiary:    rgba(60,44,28,0.42);
+  --accent:           #DD4B2F;
+  --accent-hover:     #c8402a;
+  --shadow-sm:        0 1px 3px rgba(60,40,20,0.07), 0 8px 24px rgba(60,40,20,0.07);
+  --out-fade:         0.45;
+  --r:                14px;
+  --r-sm:             9px;
+}
+
+html[data-design="editorial"].dark {
+  --surface:          #181410;
+  --surface-sidebar:  #110D0A;
+  --surface-elevated: #221C16;
+  --surface-secondary: rgba(255,244,228,0.05);
+  --surface-tertiary:  rgba(255,244,228,0.09);
+  --hover:            rgba(255,244,228,0.06);
+  --border:           rgba(255,240,225,0.11);
+  --border-strong:    rgba(255,240,225,0.18);
+  --grid:             rgba(255,240,225,0.09);
+  --grid-soft:        rgba(255,240,225,0.05);
+  --text-primary:     #F2E9DC;
+  --text-secondary:   rgba(240,228,210,0.62);
+  --text-tertiary:    rgba(240,228,210,0.36);
+  --accent:           #F2613F;
+  --accent-hover:     #e0543a;
+  --shadow-sm:        0 1px 3px rgba(0,0,0,0.45), 0 8px 28px rgba(0,0,0,0.55);
+  --out-fade:         0.42;
+}
+
+/* ─── Sidebar always uses dark tokens (light & dark themes) ──── */
+[data-sidebar-theme="dark"] {
+  --surface:          #1C1C1E;
+  --surface-secondary: rgba(255,255,255,0.05);
+  --surface-tertiary:  rgba(255,255,255,0.10);
+  --hover:            rgba(255,255,255,0.06);
+  --border:           rgba(255,255,255,0.10);
+  --border-strong:    rgba(255,255,255,0.16);
+  --text-primary:     #F2F2F2;
+  --text-secondary:   rgba(235,235,245,0.60);
+  --text-tertiary:    rgba(235,235,245,0.32);
+  --accent:           #F2453A;
+}
+
+/* Editorial sidebar — warm espresso, in both light & dark */
+html[data-design="editorial"] [data-sidebar-theme="dark"] {
+  --surface:          #2C241D;
+  --surface-secondary: rgba(255,244,228,0.05);
+  --surface-tertiary:  rgba(255,244,228,0.10);
+  --hover:            rgba(255,244,228,0.06);
+  --border:           rgba(255,240,225,0.10);
+  --border-strong:    rgba(255,240,225,0.16);
+  --text-primary:     #F2E9DC;
+  --text-secondary:   rgba(240,228,210,0.60);
+  --text-tertiary:    rgba(240,228,210,0.34);
+  --accent:           #F2613F;
+}
+html[data-design="editorial"].dark [data-sidebar-theme="dark"] {
+  --surface:          #110D0A;
+}
+
+/* Serif display utility — month title, brand, big day numbers */
+.font-display { font-family: var(--font-display); }
+
+/* ─── Base ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  background: var(--surface);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+
+/* ─── Event chip – bars style ─────────────────────────────────── */
+.chip-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--c, #2563eb) 13%, var(--surface));
+  color: var(--text-primary);
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: opacity .12s;
+}
+.chip-bar:hover { opacity: 0.82; }
+.dark .chip-bar {
+  background: color-mix(in srgb, var(--c, #2563eb) 26%, var(--surface));
+}
+.chip-bar-rail {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  flex: 0 0 auto;
+  margin: 1px 0;
+}
+.chip-bar-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-bar-time { color: var(--text-tertiary); font-variant-numeric: tabular-nums; flex: 0 0 auto; font-size: 10.5px; }
+.chip-bar.allday {
+  background: var(--c, #2563eb);
+  color: #fff;
+  font-weight: 550;
+}
+
+/* ─── Segment control ─────────────────────────────────────────── */
+.seg-control { background: var(--surface-secondary); border-radius: var(--r-sm); padding: 3px; gap: 2px; }
+.seg-btn { font-size: 13px; font-weight: 550; padding: 5px 14px; border-radius: calc(var(--r-sm) - 2px); color: var(--text-secondary); transition: color .14s; }
+.seg-btn.active { background: var(--surface-elevated); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+.dark .seg-btn.active { background: #3A3A3C; }
+
+/* ─── Time-grid event blocks ──────────────────────────────────── */
+.tevent {
+  position: absolute;
+  border-radius: 6px;
+  padding: 3px 7px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--c, #2563eb) 16%, var(--surface));
+  border-left: 3px solid var(--c, #2563eb);
+  color: var(--text-primary);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  cursor: pointer;
+  transition: opacity .12s;
+}
+.tevent:hover { opacity: 0.88; }
+.dark .tevent {
+  background: color-mix(in srgb, var(--c, #2563eb) 30%, var(--surface));
+}
+.tevent-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tevent-time  { font-size: 10.5px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ─── Safe area ───────────────────────────────────────────────── */
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* ─── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--grid); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* ─── Input number spinners ───────────────────────────────────── */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ─── Datetime color scheme ───────────────────────────────────── */
+input[type='datetime-local'], input[type='date'] { color-scheme: light; }
+.dark input[type='datetime-local'], .dark input[type='date'] { color-scheme: dark; }

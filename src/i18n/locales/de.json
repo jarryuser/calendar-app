@@ -1,0 +1,98 @@
+{
+  "header": {
+    "new": "Neu",
+    "today": "Heute",
+    "month": "Monat",
+    "week": "Woche",
+    "day": "Tag",
+    "agenda": "Agenda",
+    "searchPlaceholder": "Suchen oder hinzufügen... (/)",
+    "year": "Jahr"
+  },
+  "sidebar": {
+    "calendars": "Kalender"
+  },
+  "calendarList": {
+    "edit": "Bearbeiten",
+    "setDefault": "Als Standard festlegen",
+    "delete": "Löschen",
+    "defaultBadge": "Standard",
+    "newCalendar": "Neuer Kalender",
+    "editCalendar": "Kalender bearbeiten",
+    "fieldName": "Name",
+    "fieldColor": "Farbe",
+    "fieldDescription": "Beschreibung"
+  },
+  "eventModal": {
+    "titlePlaceholder": "Titel des Ereignisses",
+    "allDay": "Ganztägig",
+    "locationPlaceholder": "Ort hinzufügen",
+    "descriptionPlaceholder": "Beschreibung hinzufügen",
+    "colorButton": "Farbe",
+    "repeatButton": "Wiederholen",
+    "repeatingButton": "Wiederholt sich",
+    "remindButton": "Erinnern",
+    "reminderCount_one": "{{count}} Erinnerung",
+    "reminderCount_other": "{{count}} Erinnerungen",
+    "useCalendarColor": "Kalenderfarbe verwenden",
+    "removeRecurrence": "Wiederholung entfernen",
+    "addReminder": "+ Erinnerung hinzufügen",
+    "cancel": "Abbrechen",
+    "create": "Erstellen",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "saving": "Wird gespeichert...",
+    "reminder_0": "Zum Ereigniszeitpunkt",
+    "reminder_5": "5 Minuten vorher",
+    "reminder_10": "10 Minuten vorher",
+    "reminder_15": "15 Minuten vorher",
+    "reminder_30": "30 Minuten vorher",
+    "reminder_60": "1 Stunde vorher",
+    "reminder_120": "2 Stunden vorher",
+    "reminder_1440": "1 Tag vorher"
+  },
+  "recurrence": {
+    "daily": "Täglich",
+    "weekly": "Wöchentlich",
+    "monthly": "Monatlich",
+    "yearly": "Jährlich",
+    "every": "alle",
+    "unitDays": "Tag(e)",
+    "unitWeeks": "Woche(n)",
+    "unitMonths": "Monat(e)",
+    "unitYears": "Jahr(e)",
+    "ends": "Endet",
+    "endsNever": "Nie",
+    "endsAfter": "Nach N Wiederholungen",
+    "endsOn": "An einem Datum"
+  },
+  "views": {
+    "allDay": "ganztägig",
+    "moreEvents": "{{count}} weitere",
+    "noUpcomingEvents": "Keine bevorstehenden Ereignisse"
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "dialog": "Dialog"
+  },
+  "importDialog": {
+    "title": ".ics importieren",
+    "importInto": "Importieren in",
+    "chooseFile": "Datei auswählen",
+    "imported_one": "{{count}} Ereignis importiert",
+    "imported_other": "{{count}} Ereignisse importiert"
+  },
+  "nlp": {
+    "createSuggestion": "Erstellen: \"{{title}}\""
+  },
+  "tasks": {
+    "title": "Aufgaben",
+    "add": "Aufgabe hinzufügen",
+    "titlePlaceholder": "Aufgabentitel",
+    "notesPlaceholder": "Notizen",
+    "dueDate": "Fälligkeitsdatum",
+    "empty": "Keine Aufgaben",
+    "completed": "Erledigt"
+  }
+}

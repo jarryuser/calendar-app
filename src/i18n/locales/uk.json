@@ -1,0 +1,98 @@
+{
+  "header": {
+    "new": "Нова",
+    "today": "Сьогодні",
+    "month": "Місяць",
+    "week": "Тиждень",
+    "day": "День",
+    "agenda": "Список",
+    "searchPlaceholder": "Пошук або додати... (/)",
+    "year": "Рік"
+  },
+  "sidebar": {
+    "calendars": "Календарі"
+  },
+  "calendarList": {
+    "edit": "Редагувати",
+    "setDefault": "Зробити основним",
+    "delete": "Видалити",
+    "defaultBadge": "основний",
+    "newCalendar": "Новий календар",
+    "editCalendar": "Редагувати календар",
+    "fieldName": "Назва",
+    "fieldColor": "Колір",
+    "fieldDescription": "Опис"
+  },
+  "eventModal": {
+    "titlePlaceholder": "Назва події",
+    "allDay": "Весь день",
+    "locationPlaceholder": "Додати місце",
+    "descriptionPlaceholder": "Додати опис",
+    "colorButton": "Колір",
+    "repeatButton": "Повторення",
+    "repeatingButton": "Повторюється",
+    "remindButton": "Нагадування",
+    "reminderCount_one": "{{count}} нагадування",
+    "reminderCount_other": "{{count}} нагадування",
+    "useCalendarColor": "Колір календаря",
+    "removeRecurrence": "Видалити повторення",
+    "addReminder": "+ Додати нагадування",
+    "cancel": "Скасувати",
+    "create": "Створити",
+    "save": "Зберегти",
+    "delete": "Видалити",
+    "saving": "Збереження...",
+    "reminder_0": "В момент події",
+    "reminder_5": "За 5 хвилин",
+    "reminder_10": "За 10 хвилин",
+    "reminder_15": "За 15 хвилин",
+    "reminder_30": "За 30 хвилин",
+    "reminder_60": "За 1 годину",
+    "reminder_120": "За 2 години",
+    "reminder_1440": "За 1 день"
+  },
+  "recurrence": {
+    "daily": "Щодня",
+    "weekly": "Щотижня",
+    "monthly": "Щомісяця",
+    "yearly": "Щороку",
+    "every": "кожні",
+    "unitDays": "дн.",
+    "unitWeeks": "тиж.",
+    "unitMonths": "міс.",
+    "unitYears": "р.",
+    "ends": "Кінець",
+    "endsNever": "Ніколи",
+    "endsAfter": "Після N разів",
+    "endsOn": "До дати"
+  },
+  "views": {
+    "allDay": "весь день",
+    "moreEvents": "ще {{count}}",
+    "noUpcomingEvents": "Немає майбутніх подій"
+  },
+  "common": {
+    "save": "Зберегти",
+    "cancel": "Скасувати",
+    "dialog": "Діалог"
+  },
+  "importDialog": {
+    "title": "Імпорт .ics",
+    "importInto": "Імпортувати до",
+    "chooseFile": "Вибрати файл",
+    "imported_one": "Імпортовано {{count}} подію",
+    "imported_other": "Імпортовано {{count}} подій"
+  },
+  "nlp": {
+    "createSuggestion": "Створити: \"{{title}}\""
+  },
+  "tasks": {
+    "title": "Завдання",
+    "add": "Додати завдання",
+    "titlePlaceholder": "Назва завдання",
+    "notesPlaceholder": "Нотатки",
+    "dueDate": "Дата",
+    "empty": "Немає завдань",
+    "completed": "Виконано"
+  }
+}

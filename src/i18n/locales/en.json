@@ -1,0 +1,98 @@
+{
+  "header": {
+    "new": "New",
+    "today": "Today",
+    "month": "Month",
+    "week": "Week",
+    "day": "Day",
+    "agenda": "Agenda",
+    "searchPlaceholder": "Search or add... (/)",
+    "year": "Year"
+  },
+  "sidebar": {
+    "calendars": "Calendars"
+  },
+  "calendarList": {
+    "edit": "Edit",
+    "setDefault": "Set as default",
+    "delete": "Delete",
+    "defaultBadge": "default",
+    "newCalendar": "New calendar",
+    "editCalendar": "Edit calendar",
+    "fieldName": "Name",
+    "fieldColor": "Color",
+    "fieldDescription": "Description"
+  },
+  "eventModal": {
+    "titlePlaceholder": "Event title",
+    "allDay": "All day",
+    "locationPlaceholder": "Add location",
+    "descriptionPlaceholder": "Add description",
+    "colorButton": "Color",
+    "repeatButton": "Repeat",
+    "repeatingButton": "Repeating",
+    "remindButton": "Remind",
+    "reminderCount_one": "{{count}} reminder",
+    "reminderCount_other": "{{count}} reminders",
+    "useCalendarColor": "Use calendar color",
+    "removeRecurrence": "Remove recurrence",
+    "addReminder": "+ Add reminder",
+    "cancel": "Cancel",
+    "create": "Create",
+    "save": "Save",
+    "delete": "Delete",
+    "saving": "Saving...",
+    "reminder_0": "At event time",
+    "reminder_5": "5 minutes before",
+    "reminder_10": "10 minutes before",
+    "reminder_15": "15 minutes before",
+    "reminder_30": "30 minutes before",
+    "reminder_60": "1 hour before",
+    "reminder_120": "2 hours before",
+    "reminder_1440": "1 day before"
+  },
+  "recurrence": {
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "every": "every",
+    "unitDays": "day(s)",
+    "unitWeeks": "week(s)",
+    "unitMonths": "month(s)",
+    "unitYears": "year(s)",
+    "ends": "Ends",
+    "endsNever": "Never",
+    "endsAfter": "After N times",
+    "endsOn": "On date"
+  },
+  "views": {
+    "allDay": "all day",
+    "moreEvents": "{{count}} more",
+    "noUpcomingEvents": "No upcoming events"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "dialog": "Dialog"
+  },
+  "importDialog": {
+    "title": "Import .ics",
+    "importInto": "Import into",
+    "chooseFile": "Choose file",
+    "imported_one": "Imported {{count}} event",
+    "imported_other": "Imported {{count}} events"
+  },
+  "nlp": {
+    "createSuggestion": "Create: \"{{title}}\""
+  },
+  "tasks": {
+    "title": "Tasks",
+    "add": "Add task",
+    "titlePlaceholder": "Task title",
+    "notesPlaceholder": "Notes",
+    "dueDate": "Due date",
+    "empty": "No tasks",
+    "completed": "Completed"
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "header": {
+    "new": "Создать",
+    "today": "Сегодня",
+    "month": "Месяц",
+    "week": "Неделя",
+    "day": "День",
+    "agenda": "Список",
+    "searchPlaceholder": "Поиск или добавить... (/)",
+    "year": "Год"
+  },
+  "sidebar": {
+    "calendars": "Календари"
+  },
+  "calendarList": {
+    "edit": "Редактировать",
+    "setDefault": "Сделать основным",
+    "delete": "Удалить",
+    "defaultBadge": "основной",
+    "newCalendar": "Новый календарь",
+    "editCalendar": "Редактировать календарь",
+    "fieldName": "Название",
+    "fieldColor": "Цвет",
+    "fieldDescription": "Описание"
+  },
+  "eventModal": {
+    "titlePlaceholder": "Название события",
+    "allDay": "Весь день",
+    "locationPlaceholder": "Добавить место",
+    "descriptionPlaceholder": "Добавить описание",
+    "colorButton": "Цвет",
+    "repeatButton": "Повторение",
+    "repeatingButton": "Повторяется",
+    "remindButton": "Напомнить",
+    "reminderCount_one": "{{count}} напоминание",
+    "reminderCount_other": "{{count}} напоминания",
+    "useCalendarColor": "Цвет календаря",
+    "removeRecurrence": "Убрать повторение",
+    "addReminder": "+ Добавить напоминание",
+    "cancel": "Отмена",
+    "create": "Создать",
+    "save": "Сохранить",
+    "delete": "Удалить",
+    "saving": "Сохранение...",
+    "reminder_0": "В момент события",
+    "reminder_5": "За 5 минут",
+    "reminder_10": "За 10 минут",
+    "reminder_15": "За 15 минут",
+    "reminder_30": "За 30 минут",
+    "reminder_60": "За 1 час",
+    "reminder_120": "За 2 часа",
+    "reminder_1440": "За 1 день"
+  },
+  "recurrence": {
+    "daily": "Ежедневно",
+    "weekly": "Еженедельно",
+    "monthly": "Ежемесячно",
+    "yearly": "Ежегодно",
+    "every": "каждые",
+    "unitDays": "дн.",
+    "unitWeeks": "нед.",
+    "unitMonths": "мес.",
+    "unitYears": "г.",
+    "ends": "Конец",
+    "endsNever": "Никогда",
+    "endsAfter": "После N повторений",
+    "endsOn": "До даты"
+  },
+  "views": {
+    "allDay": "весь день",
+    "moreEvents": "ещё {{count}}",
+    "noUpcomingEvents": "Нет предстоящих событий"
+  },
+  "common": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "dialog": "Диалог"
+  },
+  "importDialog": {
+    "title": "Импорт .ics",
+    "importInto": "Импортировать в",
+    "chooseFile": "Выбрать файл",
+    "imported_one": "Импортировано {{count}} событие",
+    "imported_other": "Импортировано {{count}} событий"
+  },
+  "nlp": {
+    "createSuggestion": "Создать: \"{{title}}\""
+  },
+  "tasks": {
+    "title": "Задачи",
+    "add": "Добавить задачу",
+    "titlePlaceholder": "Название задачи",
+    "notesPlaceholder": "Заметки",
+    "dueDate": "Дата",
+    "empty": "Нет задач",
+    "completed": "Выполнено"
+  }
+}

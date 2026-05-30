@@ -1,0 +1,98 @@
+{
+  "header": {
+    "new": "Nová",
+    "today": "Dnes",
+    "month": "Mesiac",
+    "week": "Týždeň",
+    "day": "Deň",
+    "agenda": "Agenda",
+    "searchPlaceholder": "Hľadať alebo pridať... (/)",
+    "year": "Rok"
+  },
+  "sidebar": {
+    "calendars": "Kalendáre"
+  },
+  "calendarList": {
+    "edit": "Upraviť",
+    "setDefault": "Nastaviť ako predvolený",
+    "delete": "Odstrániť",
+    "defaultBadge": "predvolený",
+    "newCalendar": "Nový kalendár",
+    "editCalendar": "Upraviť kalendár",
+    "fieldName": "Názov",
+    "fieldColor": "Farba",
+    "fieldDescription": "Popis"
+  },
+  "eventModal": {
+    "titlePlaceholder": "Názov udalosti",
+    "allDay": "Celý deň",
+    "locationPlaceholder": "Pridať miesto",
+    "descriptionPlaceholder": "Pridať popis",
+    "colorButton": "Farba",
+    "repeatButton": "Opakovanie",
+    "repeatingButton": "Opakuje sa",
+    "remindButton": "Pripomienka",
+    "reminderCount_one": "{{count}} pripomienka",
+    "reminderCount_other": "{{count}} pripomienky",
+    "useCalendarColor": "Použiť farbu kalendára",
+    "removeRecurrence": "Odstrániť opakovanie",
+    "addReminder": "+ Pridať pripomienku",
+    "cancel": "Zrušiť",
+    "create": "Vytvoriť",
+    "save": "Uložiť",
+    "delete": "Odstrániť",
+    "saving": "Ukladám...",
+    "reminder_0": "V čase udalosti",
+    "reminder_5": "5 minút pred udalosťou",
+    "reminder_10": "10 minút pred udalosťou",
+    "reminder_15": "15 minút pred udalosťou",
+    "reminder_30": "30 minút pred udalosťou",
+    "reminder_60": "1 hodinu pred udalosťou",
+    "reminder_120": "2 hodiny pred udalosťou",
+    "reminder_1440": "1 deň pred udalosťou"
+  },
+  "recurrence": {
+    "daily": "Denne",
+    "weekly": "Týždenne",
+    "monthly": "Mesačne",
+    "yearly": "Ročne",
+    "every": "každý",
+    "unitDays": "deň/dni",
+    "unitWeeks": "týždeň/týždne",
+    "unitMonths": "mesiac/mesiace",
+    "unitYears": "rok/roky",
+    "ends": "Koniec",
+    "endsNever": "Nikdy",
+    "endsAfter": "Po N opakovaniach",
+    "endsOn": "Do dátumu"
+  },
+  "views": {
+    "allDay": "celý deň",
+    "moreEvents": "+{{count}} ďalšie",
+    "noUpcomingEvents": "Žiadne nadchádzajúce udalosti"
+  },
+  "common": {
+    "save": "Uložiť",
+    "cancel": "Zrušiť",
+    "dialog": "Dialóg"
+  },
+  "importDialog": {
+    "title": "Importovať .ics",
+    "importInto": "Importovať do",
+    "chooseFile": "Vybrať súbor",
+    "imported_one": "Importovaná {{count}} udalosť",
+    "imported_other": "Importované {{count}} udalosti"
+  },
+  "nlp": {
+    "createSuggestion": "Vytvoriť: \"{{title}}\""
+  },
+  "tasks": {
+    "title": "Úlohy",
+    "add": "Pridať úlohu",
+    "titlePlaceholder": "Názov úlohy",
+    "notesPlaceholder": "Poznámky",
+    "dueDate": "Dátum",
+    "empty": "Žiadne úlohy",
+    "completed": "Dokončené"
+  }
+}
