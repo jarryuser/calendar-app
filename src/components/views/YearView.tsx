@@ -9,6 +9,7 @@ import { useEventStore } from '@/store/eventStore'
 import { useCalendarStore } from '@/store/calendarStore'
 import { useDateLocale } from '@/i18n/useDateLocale'
 import { getEventHex } from '@/utils/colors'
+import { dayKeyInTz } from '@/utils/timezone'
 import { clsx } from 'clsx'
 
 function getMonthGrid(date: Date): Date[] {
@@ -86,7 +87,7 @@ function MiniMonth({ monthDate, eventDays, selectedDate, onDayClick, showWeekNum
 
 export function YearView() {
   const locale = useDateLocale()
-  const { selectedDate, setSelectedDate, setView, showWeekNumbers } = useUIStore()
+  const { selectedDate, setSelectedDate, setView, showWeekNumbers, timezone } = useUIStore()
   const { instances } = useEventStore()
   const { calendars } = useCalendarStore()
 
@@ -103,14 +104,14 @@ export function YearView() {
     const map = new Map<string, string[]>()
     for (const inst of instances) {
       if (!visibleIds.has(inst.event.calendarId)) continue
-      const key = format(parseISO(inst.instanceStart), 'yyyy-MM-dd')
+      const key = dayKeyInTz(inst.instanceStart, timezone)
       const cal = calendars.find(c => c.id === inst.event.calendarId)
       const color = getEventHex(inst.event.color ?? cal?.color)
       if (!map.has(key)) map.set(key, [])
       if (!map.get(key)!.includes(color)) map.get(key)!.push(color)
     }
     return map
-  }, [instances, visibleIds, calendars])
+  }, [instances, visibleIds, calendars, timezone])
 
   const months = useMemo(
     () => Array.from({ length: 12 }, (_, i) => addMonths(startOfYear(currentDate), i)),

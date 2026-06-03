@@ -17,6 +17,7 @@ import { useTaskStore } from '@/store/taskStore'
 import type { Task } from '@/types/task'
 import { getMonthGrid } from '@/utils/dates'
 import { getEventHex } from '@/utils/colors'
+import { dayKeyInTz } from '@/utils/timezone'
 import { useDateLocale } from '@/i18n/useDateLocale'
 import type { EventInstance, RecurringEditScope } from '@/types/event'
 import { clsx } from 'clsx'
@@ -176,7 +177,7 @@ function DroppableCell({
 
 export function MonthView() {
   const locale = useDateLocale()
-  const { selectedDate, setSelectedDate, openNewEvent, openPopover, showWeekNumbers } = useUIStore()
+  const { selectedDate, setSelectedDate, openNewEvent, openPopover, showWeekNumbers, timezone } = useUIStore()
   const { instances, update, loadRange } = useEventStore()
   const { calendars } = useCalendarStore()
   const { tasks, toggle: toggleTask } = useTaskStore()
@@ -209,7 +210,7 @@ export function MonthView() {
     const map = new Map<string, EventInstance[]>()
     for (const inst of instances) {
       if (!visibleCalendarIds.has(inst.event.calendarId)) continue
-      const key = format(parseISO(inst.instanceStart), 'yyyy-MM-dd')
+      const key = dayKeyInTz(inst.instanceStart, timezone)
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(inst)
     }
@@ -220,7 +221,7 @@ export function MonthView() {
       })
     }
     return map
-  }, [instances, visibleCalendarIds])
+  }, [instances, visibleCalendarIds, timezone])
 
   const tasksByDay = useMemo(() => {
     const map = new Map<string, typeof tasks>()
@@ -252,7 +253,7 @@ export function MonthView() {
       return
     }
 
-    const sourceDate = format(parseISO(inst.instanceStart), 'yyyy-MM-dd')
+    const sourceDate = dayKeyInTz(inst.instanceStart, timezone)
     if (sourceDate === targetDate) {
       setDraggingKey(null)
       return

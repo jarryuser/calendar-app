@@ -16,6 +16,15 @@ import { clsx } from 'clsx'
 
 const REMINDER_VALUES = [0, 5, 10, 15, 30, 60, 120, 1440]
 
+// Add one hour to a "YYYY-MM-DDTHH:MM" datetime-local string, treating it as a
+// naive wall-clock value (no timezone math, so the displayed time is preserved).
+function addHourToLocal(v: string): string {
+  const d = new Date(v)               // parsed as local wall-clock
+  d.setHours(d.getHours() + 1)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export function EventModal() {
   const { t } = useTranslation()
   const { isEventModalOpen, editingEventId, editingInstanceDate, newEventDefaults, closeEventModal, timezone } = useUIStore()
@@ -150,9 +159,13 @@ export function EventModal() {
                 type={allDay ? 'date' : 'datetime-local'}
                 value={allDay ? start.slice(0, 10) : start}
                 onChange={e => {
-                  setStart(e.target.value)
-                  if (e.target.value >= end.slice(0, e.target.value.length)) {
-                    setEnd(e.target.value.slice(0, 11) + addHours(parseISO(fromDatetimeLocalTz(e.target.value, timezone)), 1).toISOString().slice(11, 16))
+                  const v = e.target.value
+                  setStart(v)
+                  // keep end >= start; preserve wall-clock duration of +1h for timed events
+                  if (allDay) {
+                    if (v > end.slice(0, 10)) setEnd(v)
+                  } else if (v >= end) {
+                    setEnd(addHourToLocal(v))
                   }
                 }}
                 className="h-8 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500"

@@ -120,7 +120,10 @@ export const useEventStore = create<EventStore>((set, get) => ({
     }
 
     if (scope === 'this' && instanceDate) {
-      // создаём исключение для конкретного экземпляра
+      // создаём исключение для конкретного экземпляра.
+      // Исключение - это материализованный единичный экземпляр, поэтому оно
+      // НЕ должно нести recurrence (иначе повторное редактирование породит
+      // вложенное исключение с неправильным recurringEventId).
       const exId = crypto.randomUUID()
       const duration = parseISO(original.end).getTime() - parseISO(original.start).getTime()
       const newStart = data.start ?? instanceDate
@@ -131,6 +134,7 @@ export const useEventStore = create<EventStore>((set, get) => ({
         id: exId,
         start: newStart,
         end: newEnd,
+        recurrence: undefined,
         recurringEventId: id,
         exceptionDate: instanceDate,
         isException: true,
@@ -138,7 +142,15 @@ export const useEventStore = create<EventStore>((set, get) => ({
         updatedAt: now,
       }
       await db.events.add(exception)
-      set(s => ({ events: [...s.events, exception] }))
+      set(s => ({
+        events: [...s.events, exception],
+        // отражаем правку сразу: заменяем экземпляр в instances
+        instances: s.instances.map(i =>
+          i.event.id === id && i.instanceStart === instanceDate
+            ? { event: exception, instanceStart: newStart, instanceEnd: newEnd, isRecurring: true }
+            : i
+        ),
+      }))
       return
     }
 
@@ -210,16 +222,35 @@ export const useEventStore = create<EventStore>((set, get) => ({
   importFromICS: async (icsString, calendarId) => {
     const parsed = importICS(icsString)
     const now = new Date().toISOString()
-    const events: CalendarEvent[] = parsed.map(e => ({
-      ...e,
-      id: crypto.randomUUID(),
-      calendarId,
-      createdAt: now,
-      updatedAt: now,
-    }))
-    await db.events.bulkAdd(events)
-    set(s => ({ events: [...s.events, ...events] }))
-    return events.length
+
+    // De-duplicate by UID within this calendar: update existing events,
+    // insert new ones. Avoids duplicate copies when re-importing the same file.
+    const existing = await db.events.where('calendarId').equals(calendarId).toArray()
+    const byUid = new Map(existing.filter(e => e.uid).map(e => [e.uid!, e]))
+
+    const toAdd: CalendarEvent[] = []
+    const toUpdate: CalendarEvent[] = []
+
+    for (const e of parsed) {
+      const match = e.uid ? byUid.get(e.uid) : undefined
+      if (match) {
+        toUpdate.push({ ...match, ...e, id: match.id, calendarId, updatedAt: now })
+      } else {
+        toAdd.push({ ...e, id: crypto.randomUUID(), calendarId, createdAt: now, updatedAt: now })
+      }
+    }
+
+    await db.transaction('rw', db.events, async () => {
+      if (toAdd.length) await db.events.bulkAdd(toAdd)
+      for (const ev of toUpdate) await db.events.put(ev)
+    })
+    set(s => {
+      const updatedIds = new Set(toUpdate.map(e => e.id))
+      return {
+        events: [...s.events.filter(e => !updatedIds.has(e.id)), ...toUpdate, ...toAdd],
+      }
+    })
+    return toAdd.length + toUpdate.length
   },
 
   search: async (query) => {

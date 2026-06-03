@@ -12,6 +12,7 @@ declare module 'ical.js' {
 
   export class Event {
     constructor(component: Component)
+    uid: string
     summary: string
     description: string
     location: string
@@ -37,6 +38,9 @@ declare module 'ical.js' {
   export class Time {
     constructor()
     isDate: boolean
+    year: number
+    month: number
+    day: number
     static fromJSDate(date: Date, useUTC?: boolean): Time
     toJSDate(): Date
     toICALString(): string

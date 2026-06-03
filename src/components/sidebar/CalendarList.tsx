@@ -80,7 +80,8 @@ function CalendarFormDialog({
 
 export function CalendarList() {
   const { t } = useTranslation()
-  const { calendars, toggleVisibility, create, update, remove, setDefault, subscribe, refreshSubscription, refreshing } = useCalendarStore()
+  const { calendars, toggleVisibility, create, update, remove, setDefault, subscribe, refreshSubscription, refreshing, subscribeError } = useCalendarStore()
+  const [subscribing, setSubscribing] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [showSubscribe, setShowSubscribe] = useState(false)
   const [subscribeUrl, setSubscribeUrl] = useState('')
@@ -128,18 +129,28 @@ export function CalendarList() {
             className="w-full h-7 rounded border border-[var(--border)] bg-[var(--surface)] px-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           <button
-            disabled={!subscribeUrl.trim()}
+            disabled={!subscribeUrl.trim() || subscribing}
             onClick={async () => {
               if (!subscribeUrl.trim()) return
-              await subscribe(subscribeUrl.trim(), subscribeName.trim() || 'Subscribed Calendar', 'teal')
-              setSubscribeUrl('')
-              setSubscribeName('')
-              setShowSubscribe(false)
+              setSubscribing(true)
+              try {
+                await subscribe(subscribeUrl.trim(), subscribeName.trim() || 'Subscribed Calendar', 'teal')
+                setSubscribeUrl('')
+                setSubscribeName('')
+                setShowSubscribe(false)
+              } catch {
+                // error is surfaced via subscribeError below; keep the form open
+              } finally {
+                setSubscribing(false)
+              }
             }}
             className="w-full h-7 rounded bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            Subscribe
+            {subscribing ? 'Subscribing…' : 'Subscribe'}
           </button>
+          {subscribeError && (
+            <p className="text-[10px] text-red-500 leading-snug px-0.5">{subscribeError}</p>
+          )}
         </div>
       )}
 

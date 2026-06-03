@@ -7,12 +7,13 @@ import { useEventStore } from '@/store/eventStore'
 import { useCalendarStore } from '@/store/calendarStore'
 import { useTaskStore } from '@/store/taskStore'
 import { getEventHex } from '@/utils/colors'
+import { dayKeyInTz } from '@/utils/timezone'
 import { useDateLocale } from '@/i18n/useDateLocale'
 
 export function AgendaView() {
   const { t } = useTranslation()
   const locale = useDateLocale()
-  const { selectedDate, openPopover, setSelectedDate } = useUIStore()
+  const { selectedDate, openPopover, setSelectedDate, timezone } = useUIStore()
   const { instances } = useEventStore()
   const { calendars } = useCalendarStore()
   const { tasks, toggle: toggleTask } = useTaskStore()
@@ -28,7 +29,7 @@ export function AgendaView() {
     }
     for (const inst of instances) {
       if (!visibleIds.has(inst.event.calendarId)) continue
-      const key = format(parseISO(inst.instanceStart), 'yyyy-MM-dd')
+      const key = dayKeyInTz(inst.instanceStart, timezone)
       groups.get(key)?.push(inst)
     }
     for (const [, arr] of groups) {
@@ -38,7 +39,7 @@ export function AgendaView() {
       })
     }
     return Array.from(groups.entries()).filter(([, arr]) => arr.length > 0)
-  }, [instances, visibleIds, selectedDate])
+  }, [instances, visibleIds, selectedDate, timezone])
 
   const tasksByDay = useMemo(() => {
     const map = new Map<string, typeof tasks>()

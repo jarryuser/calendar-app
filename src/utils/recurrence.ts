@@ -93,8 +93,7 @@ export async function expandRecurringEvents(
 
 export function recurrenceRuleToText(rule: RecurrenceRule): string {
   const { frequency, interval } = rule
-  const n = interval > 1 ? ` ${interval}` : ''
-  const base = {
+  let text = {
     daily: interval > 1 ? `Every ${interval} days` : 'Daily',
     weekly: interval > 1 ? `Every ${interval} weeks` : 'Weekly',
     monthly: interval > 1 ? `Every ${interval} months` : 'Monthly',
@@ -102,8 +101,14 @@ export function recurrenceRuleToText(rule: RecurrenceRule): string {
   }[frequency]
 
   if (rule.byWeekDay?.length) {
-    const days = rule.byWeekDay.join(', ')
-    return `${base} on ${days}`
+    text += ` on ${rule.byWeekDay.join(', ')}`
   }
-  return base + (n && !base.includes(n) ? '' : '')
+
+  if (rule.count) {
+    text += `, ${rule.count} time${rule.count !== 1 ? 's' : ''}`
+  } else if (rule.until) {
+    text += `, until ${rule.until.slice(0, 10)}`
+  }
+
+  return text
 }

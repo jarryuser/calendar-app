@@ -15,6 +15,11 @@ export function importICS(icsString: string): Omit<CalendarEvent, 'id' | 'calend
   const comp = new ICAL.Component(jcal)
   const vevents = comp.getAllSubcomponents('vevent')
 
+  // ICAL.Time -> "YYYY-MM-DD" using the calendar-date components directly,
+  // so all-day events keep their date instead of shifting via UTC conversion.
+  const toDateOnly = (t: ICAL.Time): string =>
+    `${String(t.year).padStart(4, '0')}-${String(t.month).padStart(2, '0')}-${String(t.day).padStart(2, '0')}`
+
   return vevents.map((vevent: ICAL.Component) => {
     const ev = new ICAL.Event(vevent)
     const dtstart = ev.startDate
@@ -37,9 +42,10 @@ export function importICS(icsString: string): Omit<CalendarEvent, 'id' | 'calend
     }
 
     return {
+      uid: ev.uid || undefined,
       title: ev.summary || 'Untitled',
-      start: dtstart.toJSDate().toISOString(),
-      end: dtend.toJSDate().toISOString(),
+      start: allDay ? toDateOnly(dtstart) : dtstart.toJSDate().toISOString(),
+      end: allDay ? toDateOnly(dtend) : dtend.toJSDate().toISOString(),
       allDay,
       description: ev.description || undefined,
       location: ev.location || undefined,
@@ -61,7 +67,8 @@ export function exportICS(events: CalendarEvent[], calendarName = 'Calendar'): s
 
   for (const event of events) {
     const vevent = new ICAL.Component('vevent')
-    vevent.updatePropertyWithValue('uid', event.id)
+    // preserve the original UID so re-importing this export is idempotent
+    vevent.updatePropertyWithValue('uid', event.uid || event.id)
     vevent.updatePropertyWithValue('summary', event.title)
     vevent.updatePropertyWithValue('created', ICAL.Time.fromJSDate(parseISO(event.createdAt)))
     vevent.updatePropertyWithValue('dtstamp', ICAL.Time.fromJSDate(new Date()))

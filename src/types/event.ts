@@ -22,6 +22,7 @@ export interface Reminder {
 
 export interface CalendarEvent {
   id: string
+  uid?: string            // iCal UID, used to de-duplicate re-imports
   title: string
   start: string
   end: string

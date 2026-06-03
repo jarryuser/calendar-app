@@ -3,10 +3,25 @@ import { db } from '@/db'
 import type { Calendar, CalendarColor } from '@/types/calendar'
 import { importICS } from '@/utils/ical'
 
+// Fetch an .ics URL and replace the calendar's events with the parsed result.
+async function fetchAndImport(url: string, calendarId: string): Promise<void> {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const icsText = await res.text()
+  const parsed = importICS(icsText)
+  const now = new Date().toISOString()
+  const events = parsed.map(e => ({ ...e, id: crypto.randomUUID(), calendarId, createdAt: now, updatedAt: now }))
+  await db.transaction('rw', db.events, async () => {
+    await db.events.where('calendarId').equals(calendarId).delete()
+    await db.events.bulkAdd(events)
+  })
+}
+
 interface CalendarStore {
   calendars: Calendar[]
   loading: boolean
   refreshing: string | null
+  subscribeError: string | null
 
   load: () => Promise<void>
   create: (data: { name: string; color: CalendarColor; description?: string }) => Promise<string>
@@ -23,6 +38,7 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
   calendars: [],
   loading: false,
   refreshing: null,
+  subscribeError: null,
 
   load: async () => {
     set({ loading: true })
@@ -57,34 +73,39 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
       subscriptionUrl: url, lastRefreshed: undefined,
       createdAt: now, updatedAt: now,
     }
+    // Fetch first; only persist the calendar if the subscription is reachable,
+    // so a failed URL doesn't leave a broken empty calendar behind.
+    try {
+      await fetchAndImport(url, id)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to fetch subscription'
+      set({ subscribeError: msg })
+      // clean up any events that may have been written before the failure
+      await db.events.where('calendarId').equals(id).delete()
+      throw err
+    }
     await db.calendars.add(calendar)
-    set(s => ({ calendars: [...s.calendars, calendar] }))
-
-    // fetch and import events
-    await get().refreshSubscription(id)
+    set(s => ({ calendars: [...s.calendars, calendar], subscribeError: null }))
     return id
   },
 
   refreshSubscription: async (calendarId) => {
     const cal = get().calendars.find(c => c.id === calendarId)
     if (!cal?.subscriptionUrl) return
-    set({ refreshing: calendarId })
+    set({ refreshing: calendarId, subscribeError: null })
     try {
-      const res = await fetch(cal.subscriptionUrl)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const icsText = await res.text()
-      // delete old events from this subscription calendar
-      await db.events.where('calendarId').equals(calendarId).delete()
-      // import new ones
-      const parsed = importICS(icsText)
+      await fetchAndImport(cal.subscriptionUrl, calendarId)
       const now = new Date().toISOString()
-      const events = parsed.map(e => ({ ...e, id: crypto.randomUUID(), calendarId, createdAt: now, updatedAt: now }))
-      await db.events.bulkAdd(events)
-      // update lastRefreshed
       await db.calendars.update(calendarId, { lastRefreshed: now, updatedAt: now })
       set(s => ({
         calendars: s.calendars.map(c => c.id === calendarId ? { ...c, lastRefreshed: now } : c),
       }))
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err)
+      const msg = raw.toLowerCase().includes('load failed') || raw.toLowerCase().includes('failed to fetch')
+        ? 'Could not reach the calendar URL (the server may block cross-origin requests; try the desktop app)'
+        : raw
+      set({ subscribeError: msg })
     } finally {
       set({ refreshing: null })
     }

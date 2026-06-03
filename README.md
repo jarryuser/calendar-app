@@ -42,7 +42,7 @@ Pre-built binaries are published automatically with every release via GitHub Act
 
 ## Features
 
-| | Feature | Details |
+| ✨ | Feature | Details |
 |---|---|---|
 | 📅 | **Five views** | Month, Week, Day, Agenda, Year - switch with one keystroke or the header toggle |
 | ✏️ | **Rich event editor** | Title, date/time, all-day, location, description, color, calendar, multiple reminders |

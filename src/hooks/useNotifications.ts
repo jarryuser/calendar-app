@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { useEventStore } from '@/store/eventStore'
-import { useUIStore } from '@/store/uiStore'
-import { parseISO, addDays } from 'date-fns'
+import { db } from '@/db'
+import { expandRecurringEvents } from '@/utils/recurrence'
+import { parseISO, addDays, subDays } from 'date-fns'
+import type { EventInstance } from '@/types/event'
 
 const NOTIFIED_KEY = 'calendar-notified'
 
@@ -30,9 +31,26 @@ async function showNotification(title: string, body: string) {
   new Notification(title, { body, icon: '/favicon.svg' })
 }
 
+// Query upcoming reminder-bearing events directly from the DB, independent of
+// whatever range the active view has loaded. Covers the next 25h, expanding
+// recurring masters so their reminders fire too.
+async function upcomingInstances(): Promise<EventInstance[]> {
+  const now = new Date()
+  const windowStart = subDays(now, 1)
+  const windowEnd = addDays(now, 1)
+
+  const all = await db.events.toArray()
+  const regular: EventInstance[] = all
+    .filter(e => !e.recurringEventId && !e.recurrence && e.reminders?.length)
+    .map(e => ({ event: e, instanceStart: e.start, instanceEnd: e.end, isRecurring: false }))
+
+  const masters = all.filter(e => !!e.recurrence && !e.recurringEventId && e.reminders?.length)
+  const recurring = await expandRecurringEvents(masters, windowStart, windowEnd)
+
+  return [...regular, ...recurring]
+}
+
 export function useNotifications() {
-  const { instances, loadRange } = useEventStore()
-  const { selectedDate } = useUIStore()
   const permissionRef = useRef<NotificationPermission>('default')
 
   useEffect(() => {
@@ -42,10 +60,11 @@ export function useNotifications() {
   }, [])
 
   useEffect(() => {
-    const tick = () => {
+    const tick = async () => {
       if (permissionRef.current !== 'granted') return
       const now = Date.now()
       const notified = getNotified()
+      const instances = await upcomingInstances()
 
       for (const instance of instances) {
         const { event } = instance
@@ -66,11 +85,8 @@ export function useNotifications() {
       }
     }
 
-    const interval = setInterval(tick, 30_000)
+    void tick()
+    const interval = setInterval(() => { void tick() }, 30_000)
     return () => clearInterval(interval)
-  }, [instances])
-
-  useEffect(() => {
-    loadRange(addDays(new Date(), 1), 'agenda')
-  }, [selectedDate])
+  }, [])
 }

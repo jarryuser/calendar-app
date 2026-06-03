@@ -5,6 +5,13 @@ export function toLocalTime(iso: string, timezone: string): Date {
   return toZonedTime(parseISO(iso), timezone)
 }
 
+// "YYYY-MM-DD" bucket key for an ISO instant in the given timezone.
+// Date-only strings (all-day events) are returned as-is.
+export function dayKeyInTz(iso: string, timezone: string): string {
+  if (iso.length === 10) return iso
+  return formatInTimeZone(parseISO(iso), timezone, 'yyyy-MM-dd')
+}
+
 export function toDatetimeLocalTz(iso: string, timezone: string): string {
   return formatInTimeZone(parseISO(iso), timezone, "yyyy-MM-dd'T'HH:mm")
 }
