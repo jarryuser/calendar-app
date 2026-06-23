@@ -39,6 +39,11 @@
     "macOS": {
       "minimumSystemVersion": "10.15"
     },
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    },
     "windows": {
       "wix": null,
       "nsis": null
