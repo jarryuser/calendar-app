@@ -54,7 +54,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   remove: async (id) => {
+    const { trackDeletion } = await import('@/sync/engine')
     await db.tasks.delete(id)
+    await trackDeletion('task', id)
     set(s => ({ tasks: s.tasks.filter(t => t.id !== id) }))
   },
 }))

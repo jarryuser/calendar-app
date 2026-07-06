@@ -122,10 +122,16 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
   },
 
   remove: async (id) => {
+    const { trackDeletion } = await import('@/sync/engine')
+    const eventsToDelete = await db.events.where('calendarId').equals(id).toArray()
     await db.transaction('rw', [db.calendars, db.events], async () => {
       await db.calendars.delete(id)
       await db.events.where('calendarId').equals(id).delete()
     })
+    await trackDeletion('calendar', id)
+    for (const evt of eventsToDelete) {
+      await trackDeletion('event', evt.id)
+    }
     set(s => ({ calendars: s.calendars.filter(c => c.id !== id) }))
   },
 

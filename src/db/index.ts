@@ -7,6 +7,20 @@ interface DeletedInstance {
   id: string
   eventId: string
   date: string
+  createdAt: string
+}
+
+export interface SyncMeta {
+  key: string
+  value: string
+}
+
+export interface SyncQueueEntry {
+  id: string
+  entityType: 'event' | 'calendar' | 'task' | 'deletedInstance'
+  entityId: string
+  action: 'delete'
+  createdAt: string
 }
 
 class CalendarDb extends Dexie {
@@ -14,6 +28,8 @@ class CalendarDb extends Dexie {
   calendars!: Table<Calendar>
   deletedInstances!: Table<DeletedInstance>
   tasks!: Table<Task>
+  syncMeta!: Table<SyncMeta>
+  syncQueue!: Table<SyncQueueEntry>
 
   constructor() {
     super('CalendarDb')
@@ -41,6 +57,14 @@ class CalendarDb extends Dexie {
       tasks: 'id, calendarId, dueDate, completed, createdAt',
       caldavAccounts: 'id, enabled',
       caldavCalendars: 'calendarId, accountId',
+    })
+    this.version(5).stores({
+      events: 'id, calendarId, start, end, recurringEventId, exceptionDate',
+      calendars: 'id, isDefault, createdAt',
+      deletedInstances: 'id, eventId, date',
+      tasks: 'id, calendarId, dueDate, completed, createdAt',
+      syncMeta: 'key',
+      syncQueue: 'id, entityType, entityId, createdAt',
     })
   }
 }

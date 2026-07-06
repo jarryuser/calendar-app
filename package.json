@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "pages:dev": "npx wrangler pages dev --d1 DB=calendar-db --proxy 5173",
+    "pages:deploy": "npm run build && npx wrangler pages deploy"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

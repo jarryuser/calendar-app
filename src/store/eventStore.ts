@@ -179,6 +179,7 @@ export const useEventStore = create<EventStore>((set, get) => ({
   },
 
   remove: async (id, scope = 'all', instanceDate) => {
+    const { trackDeletion } = await import('@/sync/engine')
     const original = get().events.find(e => e.id === id)
     if (!original) return
 
@@ -188,6 +189,7 @@ export const useEventStore = create<EventStore>((set, get) => ({
         await db.events.where('recurringEventId').equals(id).delete()
         await db.deletedInstances.where('eventId').equals(id).delete()
       })
+      await trackDeletion('event', id)
       set(s => ({
         events: s.events.filter(e => e.id !== id && e.recurringEventId !== id),
         instances: s.instances.filter(i => i.event.id !== id),
@@ -200,6 +202,7 @@ export const useEventStore = create<EventStore>((set, get) => ({
         id: crypto.randomUUID(),
         eventId: id,
         date: instanceDate,
+        createdAt: new Date().toISOString(),
       })
       set(s => ({
         instances: s.instances.filter(
