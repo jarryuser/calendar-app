@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { subscribe, type SyncState } from './engine'
+import { subscribe, syncOnce, type SyncState } from './engine'
+
+export { syncOnce }
 
 export function useSync(): SyncState {
   const [state, setState] = useState<SyncState>({

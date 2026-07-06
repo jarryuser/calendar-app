@@ -4,6 +4,7 @@ import * as client from './client'
 let syncInProgress = false
 let lastSyncError: string | null = null
 let syncListeners: Array<(state: SyncState) => void> = []
+let completeListeners: Array<() => void> = []
 
 export interface SyncState {
   syncing: boolean
@@ -30,6 +31,13 @@ export function subscribe(listener: (state: SyncState) => void): () => void {
   listener(getState())
   return () => {
     syncListeners = syncListeners.filter(fn => fn !== listener)
+  }
+}
+
+export function onSyncComplete(cb: () => void): () => void {
+  completeListeners.push(cb)
+  return () => {
+    completeListeners = completeListeners.filter(fn => fn !== cb)
   }
 }
 
@@ -114,6 +122,7 @@ export async function syncOnce(): Promise<void> {
 
     syncInProgress = false
     notifyListeners(getState())
+    completeListeners.forEach(fn => fn())
   } catch (err) {
     syncInProgress = false
     lastSyncError = err instanceof Error ? err.message : 'Sync failed'

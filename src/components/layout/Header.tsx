@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Search, Moon, Sun, Menu, Plus, Upload, Download, X, Feather, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, Moon, Sun, Menu, Plus, Upload, Download, X, Feather, Sparkles, RefreshCw } from 'lucide-react'
 import { parseISO, format } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/uiStore'
@@ -13,6 +13,7 @@ import type { EventInstance } from '@/types/event'
 import { getEventHex } from '@/utils/colors'
 import { useDateLocale } from '@/i18n/useDateLocale'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { useSync, syncOnce } from '@/sync/useSync'
 import { SUPPORTED_LANGUAGES } from '@/i18n'
 import i18n from '@/i18n'
 import { TIMEZONES } from '@/utils/timezone'
@@ -90,6 +91,7 @@ export function Header() {
   const { calendars } = useCalendarStore()
   const { search } = useEventStore()
 
+  const syncState = useSync()
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<EventInstance[]>([])
   const [isSearchFocused, setIsSearchFocused] = useState(false)
@@ -257,6 +259,18 @@ export function Header() {
             </div>
           )}
         </div>
+
+        {/* sync button */}
+        <button
+          onClick={() => syncOnce()}
+          disabled={syncState.syncing}
+          title={syncState.lastSyncError || (syncState.syncing ? 'Syncing…' : 'Sync')}
+          className="w-7 h-7 flex items-center justify-center rounded-[var(--r-sm)] text-[var(--text-secondary)] transition-colors"
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
+          onMouseLeave={e => (e.currentTarget.style.background = '')}
+        >
+          <RefreshCw size={13} className={syncState.syncing ? 'animate-spin' : ''} />
+        </button>
 
         {/* utility icons */}
         <div className="hidden md:flex items-center gap-0.5">

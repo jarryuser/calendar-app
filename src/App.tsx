@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
+import { parseISO } from 'date-fns'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { LoginScreen } from '@/components/auth/LoginScreen'
 import { db, seedDefaultCalendar } from '@/db'
 import { useCalendarStore } from '@/store/calendarStore'
+import { useEventStore } from '@/store/eventStore'
+import { useTaskStore } from '@/store/taskStore'
+import { useUIStore } from '@/store/uiStore'
 import { hasAuthToken } from '@/sync/client'
-import { startAutoSync, stopAutoSync, syncOnce } from '@/sync/engine'
+import { startAutoSync, stopAutoSync, syncOnce, onSyncComplete } from '@/sync/engine'
 
 export default function App() {
   const [ready, setReady] = useState(false)
@@ -33,6 +37,16 @@ export default function App() {
       return () => stopAutoSync()
     }
   }, [ready, authenticated])
+
+  useEffect(() => {
+    if (!ready) return
+    return onSyncComplete(async () => {
+      const { selectedDate, view } = useUIStore.getState()
+      useEventStore.getState().loadRange(parseISO(selectedDate), view)
+      useTaskStore.getState().load()
+      useCalendarStore.getState().load()
+    })
+  }, [ready])
 
   if (!ready) {
     return (
