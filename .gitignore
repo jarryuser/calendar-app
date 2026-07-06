@@ -5,3 +5,6 @@ dist/
 
 # Tauri
 src-tauri/target/
+
+# Cloudflare
+.wrangler/
