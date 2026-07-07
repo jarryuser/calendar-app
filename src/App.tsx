@@ -41,10 +41,10 @@ export default function App() {
   useEffect(() => {
     if (!ready) return
     return onSyncComplete(async () => {
+      await useCalendarStore.getState().load()
+      await useTaskStore.getState().load()
       const { selectedDate, view } = useUIStore.getState()
       useEventStore.getState().loadRange(parseISO(selectedDate), view)
-      useTaskStore.getState().load()
-      useCalendarStore.getState().load()
     })
   }, [ready])
 
