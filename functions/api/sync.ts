@@ -198,14 +198,17 @@ async function pullEvents(db: D1Database, since: string): Promise<{ upserted: Re
   }
 }
 
-async function pullCalendars(db: D1Database, since: string): Promise<{ upserted: Record<string, unknown>[]; deleted: string[] }> {
-  const upserted = await db.prepare(
-    `SELECT * FROM calendars WHERE updatedAt > ? AND deleted_at IS NULL ORDER BY updatedAt ASC`
-  ).bind(since).all()
-
-  const deletedRows = await db.prepare(
-    `SELECT id FROM calendars WHERE deleted_at > ? ORDER BY deleted_at ASC`
-  ).bind(since).all()
+// Calendars are a small dataset; always return all active calendars so
+// device calendars resolve on other devices regardless of updatedAt age.
+async function pullCalendars(db: D1Database, _since: string): Promise<{ upserted: Record<string, unknown>[]; deleted: string[] }> {
+  const [upserted, deletedRows] = await Promise.all([
+    db.prepare(
+      `SELECT * FROM calendars WHERE deleted_at IS NULL ORDER BY createdAt ASC`
+    ).all(),
+    db.prepare(
+      `SELECT id FROM calendars WHERE deleted_at IS NOT NULL ORDER BY deleted_at ASC`
+    ).all(),
+  ])
 
   return {
     upserted: (upserted.results || []).map(rowToCalendar),
