@@ -41,9 +41,11 @@ export default function App() {
   useEffect(() => {
     if (!ready) return
     return onSyncComplete(async () => {
+      console.log('[sync] onSyncComplete fired')
       await useCalendarStore.getState().load()
       await useTaskStore.getState().load()
       const { selectedDate, view } = useUIStore.getState()
+      console.log('[sync] reloading view:', view, selectedDate)
       useEventStore.getState().loadRange(parseISO(selectedDate), view)
     })
   }, [ready])

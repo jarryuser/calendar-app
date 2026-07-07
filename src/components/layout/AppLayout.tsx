@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { parseISO, format } from 'date-fns'
 import { Header } from './Header'
 import { BottomNav } from './BottomNav'
@@ -35,8 +35,21 @@ export function AppLayout() {
     loadTasks()
   }, [])
 
+  const lastReloadRef = useRef(0)
   useEffect(() => {
     loadRange(parseISO(selectedDate), view)
+  }, [selectedDate, view])
+
+  // fallback auto-refresh every 30s while the tab is visible
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      const now = Date.now()
+      if (now - lastReloadRef.current < 10_000) return
+      lastReloadRef.current = now
+      loadRange(parseISO(selectedDate), view)
+    }, 30_000)
+    return () => clearInterval(id)
   }, [selectedDate, view])
 
   // close the mobile drawer whenever navigation changes (date / view)

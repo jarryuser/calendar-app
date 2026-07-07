@@ -52,7 +52,7 @@ export async function collectChanges(lastSyncAt: string | null) {
     db.syncQueue.toArray(),
   ])
 
-  return {
+  const result = {
     events: events as unknown as Record<string, unknown>[],
     eventDeletions: queue.filter(q => q.entityType === 'event').map(q => q.entityId),
     calendars: calendars as unknown as Record<string, unknown>[],
@@ -62,6 +62,8 @@ export async function collectChanges(lastSyncAt: string | null) {
     deletedInstances: deletedInstances as unknown as Record<string, unknown>[],
     deletedInstanceDeletions: queue.filter(q => q.entityType === 'deletedInstance').map(q => q.entityId),
   }
+  console.log('[sync] changes collected, events to push:', events.length, 'deletions:', result.eventDeletions.length)
+  return result
 }
 
 function stripItemDeleted<T extends Record<string, unknown>>(item: T): T {
@@ -70,6 +72,7 @@ function stripItemDeleted<T extends Record<string, unknown>>(item: T): T {
 }
 
 export async function applyPull(result: client.SyncPullResult) {
+  console.log('[sync] applying pull:', 'events:', result.events.upserted.length, result.events.deleted.length)
   await db.transaction('rw', [db.events, db.calendars, db.tasks, db.deletedInstances], async () => {
     for (const evt of result.events.upserted) {
       await db.events.put(stripItemDeleted(evt) as never)
@@ -122,10 +125,12 @@ export async function syncOnce(): Promise<void> {
 
     syncInProgress = false
     notifyListeners(getState())
+    console.log('[sync] completed, events pulled:', result.events.upserted.length)
     completeListeners.forEach(fn => fn())
   } catch (err) {
     syncInProgress = false
     lastSyncError = err instanceof Error ? err.message : 'Sync failed'
+    console.log('[sync] error:', lastSyncError)
     notifyListeners(getState())
   }
 }
