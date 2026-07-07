@@ -16,10 +16,10 @@ export function Dialog({ open, onOpenChange, title, description, children, class
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <RadixDialog.Overlay className="fixed inset-0 z-[65] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <RadixDialog.Content
           className={clsx(
-            'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2',
+            'fixed left-1/2 top-1/2 z-[70] -translate-x-1/2 -translate-y-1/2',
             'w-full max-h-[90vh] overflow-y-auto',
             'bg-[var(--surface)] rounded-xl shadow-2xl',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',

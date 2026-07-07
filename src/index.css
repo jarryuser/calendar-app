@@ -224,3 +224,8 @@ input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; marg
 /* ─── Datetime color scheme ───────────────────────────────────── */
 input[type='datetime-local'], input[type='date'] { color-scheme: light; }
 .dark input[type='datetime-local'], .dark input[type='date'] { color-scheme: dark; }
+
+/* ─── Prevent iOS auto-zoom on input focus ────────────────────── */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px !important; }
+}
