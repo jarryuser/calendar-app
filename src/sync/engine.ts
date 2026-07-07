@@ -46,7 +46,7 @@ export async function collectChanges(lastSyncAt: string | null) {
 
   const [events, calendars, tasks, deletedInstances, queue] = await Promise.all([
     db.events.filter(e => e.updatedAt > since).toArray(),
-    db.calendars.filter(c => c.updatedAt > since).toArray(),
+    db.calendars.toArray(), // push all calendars so event calendarIds resolve on other devices
     db.tasks.filter(t => t.updatedAt > since).toArray(),
     db.deletedInstances.filter(d => d.createdAt > since).toArray(),
     db.syncQueue.toArray(),

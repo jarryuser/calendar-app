@@ -44,7 +44,11 @@ export default function App() {
       console.log('[sync] onSyncComplete fired')
       await useCalendarStore.getState().load()
       await useTaskStore.getState().load()
+      const calendars = useCalendarStore.getState().calendars
+      console.log('[sync] calendars:', calendars.map(c => ({ id: c.id, name: c.name, isVisible: c.isVisible })))
       const { selectedDate, view } = useUIStore.getState()
+      const instances = useEventStore.getState().instances
+      console.log('[sync] instances count:', instances.length, 'calendars count:', calendars.length)
       console.log('[sync] reloading view:', view, selectedDate)
       useEventStore.getState().loadRange(parseISO(selectedDate), view)
     })
