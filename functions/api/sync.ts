@@ -67,7 +67,7 @@ async function processEventsPush(db: D1Database, changes: SyncChanges): Promise<
       await stmt.bind(
         evt.id, evt.uid || null, evt.title || '', evt.start, evt.end,
         evt.allDay ? 1 : 0, evt.description || '', evt.location || '',
-        evt.color || 'blue', evt.calendarId,
+        evt.color || null, evt.calendarId,
         JSON.stringify(evt.reminders || []),
         evt.recurrence ? JSON.stringify(evt.recurrence) : null,
         evt.recurringEventId || null, evt.exceptionDate || null,
@@ -95,7 +95,7 @@ async function processCalendarsPush(db: D1Database, changes: SyncChanges): Promi
     `)
     for (const cal of changes.calendars) {
       await stmt.bind(
-        cal.id, cal.name, cal.color || 'blue',
+        cal.id, cal.name, cal.color || null,
         cal.isVisible ? 1 : 0, cal.isDefault ? 1 : 0,
         cal.description || '', cal.subscriptionUrl || null,
         cal.lastRefreshed || null, cal.createdAt, cal.updatedAt
