@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react'
+import i18n from '@/i18n'
+import { reportError } from '@/utils/errors'
 import { db } from '@/db'
 import { expandRecurringEvents } from '@/utils/recurrence'
 import { parseISO, addDays, subDays } from 'date-fns'
 import type { EventInstance } from '@/types/event'
 
-const NOTIFIED_KEY = 'calendar-notified'
+const notifiedKey = () => `calendar-notified:${db.name}`
 
 function getNotified(): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem(NOTIFIED_KEY) ?? '[]'))
+    return new Set(JSON.parse(localStorage.getItem(notifiedKey()) ?? '[]'))
   } catch {
     return new Set()
   }
@@ -17,14 +19,14 @@ function getNotified(): Set<string> {
 function markNotified(key: string) {
   const set = getNotified()
   set.add(key)
-  localStorage.setItem(NOTIFIED_KEY, JSON.stringify(Array.from(set).slice(-500)))
+  localStorage.setItem(notifiedKey(), JSON.stringify(Array.from(set).slice(-500)))
 }
 
 async function showNotification(title: string, body: string) {
   if ('serviceWorker' in navigator) {
-    const reg = await navigator.serviceWorker.ready.catch(() => null)
+    const reg = await navigator.serviceWorker.getRegistration().catch(() => undefined)
     if (reg) {
-      reg.showNotification(title, { body, icon: '/favicon.svg' })
+      await reg.showNotification(title, { body, icon: '/favicon.svg' })
       return
     }
   }
@@ -51,17 +53,13 @@ async function upcomingInstances(): Promise<EventInstance[]> {
 }
 
 export function useNotifications() {
-  const permissionRef = useRef<NotificationPermission>('default')
-
-  useEffect(() => {
-    if ('Notification' in window) {
-      Notification.requestPermission().then(p => { permissionRef.current = p })
-    }
-  }, [])
+  const running = useRef(false)
 
   useEffect(() => {
     const tick = async () => {
-      if (permissionRef.current !== 'granted') return
+      if (running.current || !('Notification' in window) || Notification.permission !== 'granted') return
+      running.current = true
+      try {
       const now = Date.now()
       const notified = getNotified()
       const instances = await upcomingInstances()
@@ -76,13 +74,14 @@ export function useNotifications() {
 
           if (!notified.has(key) && now >= triggerAt && now < triggerAt + 90_000) {
             const body = reminder.minutesBefore === 0
-              ? 'Starting now'
-              : `In ${reminder.minutesBefore} minute${reminder.minutesBefore !== 1 ? 's' : ''}`
-            showNotification(event.title, body)
+              ? i18n.t('notifications.starting')
+              : i18n.t('notifications.inMinutes', { count: reminder.minutesBefore })
+            await showNotification(event.title, body)
             markNotified(key)
           }
         }
       }
+      } catch (error) { reportError(error) } finally { running.current = false }
     }
 
     void tick()

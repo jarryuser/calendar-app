@@ -1,3 +1,5 @@
+import { addDays, format } from 'date-fns'
+import { useDateLocale } from '@/i18n/useDateLocale'
 import { useTranslation } from 'react-i18next'
 import { type RecurrenceRule, type RecurrenceFrequency, type WeekDay } from '@/types/event'
 import { recurrenceRuleToText } from '@/utils/recurrence'
@@ -20,6 +22,8 @@ const WEEKDAYS: { value: WeekDay; key: string }[] = [
 
 export function RecurrenceEditor({ value, onChange }: RecurrenceEditorProps) {
   const { t } = useTranslation()
+  const locale = useDateLocale()
+  if (value?.raw) return <p className="text-sm">{t('messages.importedRule')} <code>{value.raw}</code></p>
   const rule = value ?? { frequency: 'weekly' as RecurrenceFrequency, interval: 1 }
 
   const FREQUENCIES: { value: RecurrenceFrequency; label: string }[] = [
@@ -85,7 +89,7 @@ export function RecurrenceEditor({ value, onChange }: RecurrenceEditorProps) {
                     : { background: 'var(--surface-secondary)', color: 'var(--text-secondary)' }
                 }
               >
-                {d.key}
+                {format(addDays(new Date(2024, 0, 1), WEEKDAYS.indexOf(d)), 'EEE', { locale })}
               </button>
             )
           })}

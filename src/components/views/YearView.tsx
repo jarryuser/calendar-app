@@ -9,7 +9,7 @@ import { useEventStore } from '@/store/eventStore'
 import { useCalendarStore } from '@/store/calendarStore'
 import { useDateLocale } from '@/i18n/useDateLocale'
 import { getEventHex } from '@/utils/colors'
-import { dayKeyInTz } from '@/utils/timezone'
+import { instancesByDay } from '@/utils/intervals'
 import { clsx } from 'clsx'
 
 function getMonthGrid(date: Date): Date[] {
@@ -58,11 +58,12 @@ function MiniMonth({ monthDate, eventDays, selectedDate, onDayClick, showWeekNum
               return (
                 <button
                   key={key}
+                  disabled={!inMonth}
                   onClick={() => inMonth && onDayClick(day)}
                   className={clsx(
                     'relative flex items-center justify-center rounded-full transition-colors',
                     'w-full aspect-square text-[10px] font-medium leading-none',
-                    !inMonth && 'opacity-20 pointer-events-none',
+                    !inMonth && 'text-[var(--text-tertiary)]',
                     isSelected && !today && 'bg-[var(--surface-tertiary)] text-[var(--text-primary)]',
                     !today && !isSelected && inMonth && 'hover:bg-[var(--surface-secondary)] text-[var(--text-secondary)]',
                   )}
@@ -102,16 +103,16 @@ export function YearView() {
   // map of date key → array of event colors
   const eventDays = useMemo(() => {
     const map = new Map<string, string[]>()
-    for (const inst of instances) {
+    const grouped = instancesByDay(instances, timezone, `${year}-01-01`, `${year}-12-31`)
+    for (const [key, rows] of grouped) for (const inst of rows) {
       if (!visibleIds.has(inst.event.calendarId)) continue
-      const key = dayKeyInTz(inst.instanceStart, timezone)
       const cal = calendars.find(c => c.id === inst.event.calendarId)
       const color = getEventHex(inst.event.color ?? cal?.color)
       if (!map.has(key)) map.set(key, [])
       if (!map.get(key)!.includes(color)) map.get(key)!.push(color)
     }
     return map
-  }, [instances, visibleIds, calendars, timezone])
+  }, [instances, visibleIds, calendars, timezone, year])
 
   const months = useMemo(
     () => Array.from({ length: 12 }, (_, i) => addMonths(startOfYear(currentDate), i)),

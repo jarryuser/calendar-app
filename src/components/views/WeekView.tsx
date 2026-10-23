@@ -1,3 +1,4 @@
+import { reportError } from '@/utils/errors'
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import { parseISO, format, isToday, isSameDay, differenceInMinutes, startOfDay, addMinutes, getISOWeek } from 'date-fns'
 import { useTranslation } from 'react-i18next'
@@ -8,12 +9,13 @@ import {
 } from '@dnd-kit/core'
 import { useUIStore } from '@/store/uiStore'
 import { useEventStore } from '@/store/eventStore'
+import { instancesByDay as groupInstances, segmentMinutes } from '@/utils/intervals'
 import { showToast } from '@/components/ui/Toast'
 import { useCalendarStore } from '@/store/calendarStore'
 import { getWeekDays } from '@/utils/dates'
 import { getEventHex } from '@/utils/colors'
 import { useDateLocale } from '@/i18n/useDateLocale'
-import { toLocalTime, getTzAbbrev } from '@/utils/timezone'
+import { toLocalTime, getTzAbbrev, dayAtMinute } from '@/utils/timezone'
 import type { CalendarEvent, EventInstance, RecurringEditScope } from '@/types/event'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -24,7 +26,7 @@ const SNAP_MIN = 15
 const snapMin = (min: number) => Math.round(min / SNAP_MIN) * SNAP_MIN
 const pxToMin = (px: number) => px / PX_PER_MIN
 const minToPx = (min: number) => min * PX_PER_MIN
-const clampStart = (start: number, dur: number) => Math.max(0, Math.min(24 * 60 - dur, start))
+const clampStart = (start: number, dur: number) => Math.max(0, Math.min(24 * 60 - Math.min(dur, 60), start))
 
 interface DragState {
   id: string
@@ -79,11 +81,11 @@ function layoutEvents(instances: EventInstance[]) {
   const result: Array<{ inst: EventInstance; col: number; cols: number }> = []
   const groups: EventInstance[][] = []
   for (const inst of sorted) {
-    const s = parseISO(inst.instanceStart).getTime()
-    const e = parseISO(inst.instanceEnd).getTime()
+    const s = parseISO(inst.segmentStart || inst.instanceStart).getTime()
+    const e = parseISO(inst.segmentEnd || inst.instanceEnd).getTime()
     let placed = false
     for (const group of groups) {
-      if (group.some(g => s < parseISO(g.instanceEnd).getTime() && e > parseISO(g.instanceStart).getTime())) {
+      if (group.some(g => s < parseISO(g.segmentEnd || g.instanceEnd).getTime() && e > parseISO(g.segmentStart || g.instanceStart).getTime())) {
         group.push(inst)
         placed = true
         break
@@ -111,15 +113,15 @@ function DraggableEventBlock({
   const { calendars } = useCalendarStore()
   const color = inst.event.color ?? calendars.find(c => c.id === inst.event.calendarId)?.color
   const hex = getEventHex(color)
-  const startMin = eventStartMin(inst.instanceStart, timezone)
-  const durMin = eventDurationMin(inst.instanceStart, inst.instanceEnd)
+  const { startMin, durationMin: durMin } = segmentMinutes(inst, timezone)
   const top = minToPx(startMin)
   const height = minToPx(durMin)
   const w = `calc((100% - 2px) / ${cols})`
   const l = `calc((100% - 2px) / ${cols} * ${col})`
 
   const { attributes, listeners, setNodeRef } = useDraggable({
-    id: `move-${inst.event.id}-${inst.instanceStart}`,
+    id: `move-${inst.event.id}-${inst.instanceStart}-${inst.segmentDay || ''}`,
+    disabled: !!inst.segmentStart && inst.segmentStart !== inst.instanceStart,
     data: { type: 'move', inst, dayKey },
   })
 
@@ -128,7 +130,8 @@ function DraggableEventBlock({
     listeners: rl,
     setNodeRef: setResizeRef,
   } = useDraggable({
-    id: `resize-${inst.event.id}-${inst.instanceStart}`,
+    id: `resize-${inst.event.id}-${inst.instanceStart}-${inst.segmentDay || ''}`,
+    disabled: (!!inst.segmentStart && inst.segmentStart !== inst.instanceStart) || (!!inst.segmentEnd && inst.segmentEnd !== inst.instanceEnd),
     data: { type: 'resize', inst, dayKey },
   })
 
@@ -208,27 +211,9 @@ export function WeekView() {
   const [drag, setDrag] = useState<DragState | null>(null)
   const [preview, setPreview] = useState<Preview | null>(null)
 
-  const instancesByDay = useMemo(() => {
-    const map = new Map<string, EventInstance[]>()
-    for (const d of weekDays) map.set(format(d, 'yyyy-MM-dd'), [])
-    for (const inst of instances) {
-      if (!visibleIds.has(inst.event.calendarId) || inst.event.allDay) continue
-      const key = format(parseISO(inst.instanceStart), 'yyyy-MM-dd')
-      map.get(key)?.push(inst)
-    }
-    return map
-  }, [instances, visibleIds, weekDays])
-
-  const allDayByDay = useMemo(() => {
-    const map = new Map<string, EventInstance[]>()
-    for (const inst of instances) {
-      if (!visibleIds.has(inst.event.calendarId) || !inst.event.allDay) continue
-      const key = format(parseISO(inst.instanceStart), 'yyyy-MM-dd')
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(inst)
-    }
-    return map
-  }, [instances, visibleIds])
+  const grouped = useMemo(() => groupInstances(instances.filter(instance => visibleIds.has(instance.event.calendarId)), timezone, format(weekDays[0], 'yyyy-MM-dd'), format(weekDays[6], 'yyyy-MM-dd')), [instances, visibleIds, weekDays, timezone])
+  const instancesByDay = new Map([...grouped].map(([key, rows]) => [key, rows.filter(instance => !instance.event.allDay)]))
+  const allDayByDay = new Map([...grouped].map(([key, rows]) => [key, rows.filter(instance => instance.event.allDay)]))
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 7 * HOUR_HEIGHT
@@ -287,11 +272,7 @@ export function WeekView() {
     const overDayKey = e.over?.data.current?.dayKey as string | null ?? null
     const final = computePreview(drag, e.delta.y, overDayKey)
 
-    const targetDay = parseISO(final.dayKey)
-    const newStart = new Date(
-      targetDay.getFullYear(), targetDay.getMonth(), targetDay.getDate(),
-      Math.floor(final.startMin / 60), final.startMin % 60, 0, 0
-    )
+    const newStart = dayAtMinute(final.dayKey, final.startMin, timezone)
     const newEnd = addMinutes(newStart, final.durationMin)
 
     const scope: RecurringEditScope = inst.isRecurring ? 'this' : 'all'
@@ -299,8 +280,8 @@ export function WeekView() {
     // save state for undo before updating
     saveDragUndo({
       eventId: inst.event.id,
-      previousStart: inst.event.start,
-      previousEnd: inst.event.end,
+      previousStart: inst.instanceStart,
+      previousEnd: inst.instanceEnd,
       scope,
       instanceStart: inst.isRecurring ? drag.instanceStart : undefined,
     })
@@ -317,8 +298,8 @@ export function WeekView() {
     setPreview(null)
 
     showToast({
-      message: 'Event moved',
-      actionLabel: 'Undo',
+      message: t('messages.eventMoved'),
+      actionLabel: t('actions.undo'),
       onAction: async () => { await undoLastDrag(); await loadRange(parseISO(selectedDate), view) },
       duration: 6000,
     })
@@ -333,7 +314,7 @@ export function WeekView() {
       collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
-      onDragEnd={handleDragEnd}
+      onDragEnd={event => { void handleDragEnd(event).catch(reportError) }}
     >
       <div className="flex flex-col h-full overflow-hidden p-4">
         <div
@@ -442,10 +423,8 @@ export function WeekView() {
                     <div
                       key={h}
                       onClick={() => {
-                        const start = new Date(day)
-                        start.setHours(h, 0, 0, 0)
-                        const end = new Date(start)
-                        end.setHours(h + 1, 0, 0, 0)
+                        const start = dayAtMinute(dayKey, h * 60, timezone)
+                        const end = dayAtMinute(dayKey, (h + 1) * 60, timezone)
                         setSelectedDate(format(day, 'yyyy-MM-dd'))
                         openNewEvent({ start: start.toISOString(), end: end.toISOString() })
                       }}

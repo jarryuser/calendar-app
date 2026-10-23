@@ -1,71 +1,35 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 
-interface ToastProps {
-  message: string
-  actionLabel?: string
-  onAction?: () => void
-  onDismiss: () => void
-  duration?: number
-}
-
-export function Toast({ message, actionLabel, onAction, onDismiss, duration = 5000 }: ToastProps) {
-  const [visible, setVisible] = useState(false)
-
-  useEffect(() => {
-    requestAnimationFrame(() => setVisible(true))
-    const timer = setTimeout(() => { setVisible(false); setTimeout(onDismiss, 200) }, duration)
-    return () => clearTimeout(timer)
-  }, [])
-
-  return createPortal(
-    <div
-      className={`
-        fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999]
-        flex items-center gap-3 px-4 py-2.5 rounded-xl
-        bg-[#1a1a1a] dark:bg-[#e8e8e8] text-white dark:text-black
-        shadow-xl text-sm font-medium
-        transition-all duration-200
-        ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
-      `}
-    >
-      <span>{message}</span>
-      {actionLabel && onAction && (
-        <button
-          onClick={() => { onAction(); onDismiss() }}
-          className="underline underline-offset-2 opacity-90 hover:opacity-100 transition-opacity"
-        >
-          {actionLabel}
-        </button>
-      )}
-      <button
-        onClick={() => { setVisible(false); setTimeout(onDismiss, 200) }}
-        className="opacity-50 hover:opacity-80 transition-opacity"
-      >
-        <X size={14} />
-      </button>
-    </div>,
-    document.body
-  )
-}
-
-// Simple global toast state
-type ToastData = Omit<ToastProps, 'onDismiss'>
-
-let _setToast: ((t: ToastData | null) => void) | null = null
-
+interface ToastProps { message: string; actionLabel?: string; onAction?: () => unknown; onDismiss: () => void; duration?: number }
+type ToastData = Omit<ToastProps, 'onDismiss'> & { id: number }
+let current: ToastData | null = null
+let sequence = 0
+const listeners = new Set<() => void>()
+function emit() { listeners.forEach(listener => listener()) }
+export function showToast(data: Omit<ToastData, 'id'>) { current = { ...data, id: ++sequence }; emit() }
 export function useToast() {
-  const [toast, setToast] = useState<ToastData | null>(null)
-  _setToast = setToast
-
-  return {
-    toast,
-    show: (data: ToastData) => setToast(data),
-    dismiss: () => setToast(null),
-  }
+  const toast = useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener) } }, () => current)
+  return { toast, dismiss: () => { current = null; emit() } }
 }
-
-export function showToast(data: ToastData) {
-  _setToast?.(data)
+export function Toast({ message, actionLabel, onAction, onDismiss, duration = 5000 }: ToastProps) {
+  const { t } = useTranslation()
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const animation = requestAnimationFrame(() => setVisible(true))
+    const timer = setTimeout(onDismiss, duration)
+    return () => { cancelAnimationFrame(animation); clearTimeout(timer) }
+  }, [duration, message])
+  return createPortal(
+    <div role="status" aria-live="polite" className={`fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#1a1a1a] text-white shadow-xl text-sm transition-opacity ${visible ? 'opacity-100' : 'opacity-0'}`}>
+      <span>{message}</span>
+      {actionLabel && onAction && <button onClick={() => {
+        onDismiss()
+        void Promise.resolve().then(onAction).catch(() => showToast({ message: t('messages.operationFailed') }))
+      }} className="underline">{actionLabel}</button>}
+      <button aria-label={t('actions.close')} onClick={onDismiss}><X size={14} /></button>
+    </div>, document.body,
+  )
 }

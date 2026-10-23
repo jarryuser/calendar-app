@@ -13,11 +13,12 @@ export function dayKeyInTz(iso: string, timezone: string): string {
 }
 
 export function toDatetimeLocalTz(iso: string, timezone: string): string {
+  if (iso.length === 10) return `${iso}T00:00`
   return formatInTimeZone(parseISO(iso), timezone, "yyyy-MM-dd'T'HH:mm")
 }
 
 export function fromDatetimeLocalTz(val: string, timezone: string): string {
-  return fromZonedTime(val + ':00', timezone).toISOString()
+  return fromZonedTime(val.length === 10 ? `${val}T00:00:00` : val.length === 16 ? `${val}:00` : val, timezone).toISOString()
 }
 
 export function getTzAbbrev(timezone: string): string {
@@ -59,3 +60,26 @@ export const TIMEZONES: { group: string; zones: { value: string; label: string }
     { value: 'Pacific/Auckland', label: 'Auckland (NZST)' },
   ]},
 ]
+
+export function dayBounds(dayKey: string, timezone: string): { start: Date; end: Date } {
+  const next = new Date(`${dayKey}T00:00:00Z`)
+  next.setUTCDate(next.getUTCDate() + 1)
+  return { start: fromZonedTime(`${dayKey}T00:00:00`, timezone), end: fromZonedTime(`${next.toISOString().slice(0, 10)}T00:00:00`, timezone) }
+}
+
+export function dayAtMinute(dayKey: string, minutes: number, timezone: string) {
+  const date = new Date(`${dayKey}T00:00:00Z`)
+  date.setUTCMinutes(minutes)
+  return fromZonedTime(date.toISOString().slice(0, 19), timezone)
+}
+
+export function shiftInTimezone(iso: string, days: number, timezone: string): string {
+  if (iso.length === 10) {
+    const date = new Date(`${iso}T00:00:00Z`)
+    date.setUTCDate(date.getUTCDate() + days)
+    return date.toISOString().slice(0, 10)
+  }
+  const date = toLocalTime(iso, timezone)
+  date.setDate(date.getDate() + days)
+  return fromZonedTime(date, timezone).toISOString()
+}

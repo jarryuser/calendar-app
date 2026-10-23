@@ -7,7 +7,8 @@ import { useEventStore } from '@/store/eventStore'
 import { useCalendarStore } from '@/store/calendarStore'
 import { useTaskStore } from '@/store/taskStore'
 import { getEventHex } from '@/utils/colors'
-import { dayKeyInTz } from '@/utils/timezone'
+import { instancesByDay } from '@/utils/intervals'
+import { toLocalTime } from '@/utils/timezone'
 import { useDateLocale } from '@/i18n/useDateLocale'
 
 export function AgendaView() {
@@ -22,35 +23,26 @@ export function AgendaView() {
 
   const grouped = useMemo(() => {
     const start = parseISO(selectedDate)
-    const groups = new Map<string, typeof instances>()
-    for (let i = 0; i < 60; i++) {
-      const day = addDays(start, i)
-      groups.set(format(day, 'yyyy-MM-dd'), [])
-    }
-    for (const inst of instances) {
-      if (!visibleIds.has(inst.event.calendarId)) continue
-      const key = dayKeyInTz(inst.instanceStart, timezone)
-      groups.get(key)?.push(inst)
-    }
+    const groups = instancesByDay(instances.filter(instance => visibleIds.has(instance.event.calendarId)), timezone, selectedDate, format(addDays(start, 59), 'yyyy-MM-dd'))
     for (const [, arr] of groups) {
       arr.sort((a, b) => {
         if (a.event.allDay !== b.event.allDay) return a.event.allDay ? -1 : 1
         return a.instanceStart.localeCompare(b.instanceStart)
       })
     }
-    return Array.from(groups.entries()).filter(([, arr]) => arr.length > 0)
-  }, [instances, visibleIds, selectedDate, timezone])
+    return Array.from(groups.entries()).filter(([key, rows]) => rows.length > 0 || tasks.some(task => task.dueDate === key && visibleIds.has(task.calendarId)))
+  }, [instances, visibleIds, selectedDate, timezone, tasks])
 
   const tasksByDay = useMemo(() => {
     const map = new Map<string, typeof tasks>()
     for (const task of tasks) {
-      if (!task.dueDate) continue
+      if (!task.dueDate || !visibleIds.has(task.calendarId)) continue
       const key = task.dueDate.slice(0, 10)
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(task)
     }
     return map
-  }, [tasks])
+  }, [tasks, visibleIds])
 
   if (grouped.length === 0) {
     return (
@@ -98,9 +90,9 @@ export function AgendaView() {
                         {!inst.event.allDay && (
                           <span className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
                             <Clock size={11} />
-                            {format(parseISO(inst.instanceStart), 'h:mma')}
+                            {format(toLocalTime(inst.instanceStart, timezone), 'h:mma')}
                             {' - '}
-                            {format(parseISO(inst.instanceEnd), 'h:mma')}
+                            {format(toLocalTime(inst.instanceEnd, timezone), 'h:mma')}
                           </span>
                         )}
                         {inst.event.allDay && (

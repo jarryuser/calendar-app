@@ -1,70 +1,61 @@
 import { useEffect, useState } from 'react'
-import { parseISO } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { LoginScreen } from '@/components/auth/LoginScreen'
 import { db, seedDefaultCalendar } from '@/db'
 import { useCalendarStore } from '@/store/calendarStore'
-import { useEventStore } from '@/store/eventStore'
-import { useTaskStore } from '@/store/taskStore'
-import { useUIStore } from '@/store/uiStore'
-import { hasAuthToken } from '@/sync/client'
-import { startAutoSync, stopAutoSync, syncOnce, onSyncComplete } from '@/sync/engine'
+import { restoreSession } from '@/sync/client'
+import { startAutoSync, stopAutoSync, subscribe, syncOnce } from '@/sync/engine'
 
 export default function App() {
+  const { t } = useTranslation()
   const [ready, setReady] = useState(false)
-  const [authenticated, setAuthenticated] = useState(hasAuthToken())
+  const [authenticated, setAuthenticated] = useState(false)
+  const [error, setError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    let active = true
     const init = async () => {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').catch(() => {})
-      }
+      setError(false)
       try {
+        const restored = await restoreSession()
         await db.open()
-        await seedDefaultCalendar()
-        await useCalendarStore.getState().load()
-      } catch (e) {
-        console.error('Init error:', e)
-      }
-      setReady(true)
+        if (restored) {
+          await syncOnce()
+          await seedDefaultCalendar()
+          await useCalendarStore.getState().load()
+        }
+        if (active) { setAuthenticated(restored); setReady(true) }
+        if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+          void navigator.serviceWorker.register('/sw.js').catch(() => {})
+        }
+      } catch { if (active) setError(true) }
     }
-    init()
-  }, [])
+    void init()
+    return () => { active = false }
+  }, [attempt])
 
+  useEffect(() => subscribe(state => setAuthenticated(state.authenticated)), [])
   useEffect(() => {
     if (ready && authenticated) {
       startAutoSync()
-      return () => stopAutoSync()
+      return stopAutoSync
     }
   }, [ready, authenticated])
 
-  useEffect(() => {
-    if (!ready) return
-    return onSyncComplete(async () => {
-      console.log('[sync] onSyncComplete fired')
-      await useCalendarStore.getState().load()
-      await useTaskStore.getState().load()
-      const calendars = useCalendarStore.getState().calendars
-      console.log('[sync] calendars:', calendars.map(c => ({ id: c.id, name: c.name, isVisible: c.isVisible })))
-      const { selectedDate, view } = useUIStore.getState()
-      const instances = useEventStore.getState().instances
-      console.log('[sync] instances count:', instances.length, 'calendars count:', calendars.length)
-      console.log('[sync] reloading view:', view, selectedDate)
-      useEventStore.getState().loadRange(parseISO(selectedDate), view)
-    })
-  }, [ready])
-
-  if (!ready) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-[var(--surface)]">
-        <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
-  if (!authenticated) {
-    return <LoginScreen onLogin={() => { setAuthenticated(true); syncOnce() }} />
-  }
-
+  if (error) return (
+    <div role="alert" className="flex flex-col items-center justify-center h-screen gap-4">
+      <p>{t('messages.storageFailed')}</p>
+      <button onClick={() => { setReady(false); setAttempt(value => value + 1) }}>{t('actions.retry')}</button>
+    </div>
+  )
+  if (!ready) return <div role="status" aria-label={t('actions.loading')} className="flex items-center justify-center h-screen"><div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>
+  if (!authenticated) return <LoginScreen onLogin={async () => {
+    await syncOnce()
+    await seedDefaultCalendar()
+    await useCalendarStore.getState().load()
+    setAuthenticated(true)
+  }} />
   return <AppLayout />
 }

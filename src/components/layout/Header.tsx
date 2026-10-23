@@ -1,11 +1,13 @@
-import { useRef, useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Search, Moon, Sun, Menu, Plus, Upload, Download, X, Feather, Sparkles, RefreshCw } from 'lucide-react'
+import { db } from '@/db'
+import { useRef, useState, useEffect, lazy, Suspense } from 'react'
+import { ChevronLeft, ChevronRight, Search, Moon, Sun, Menu, Plus, Upload, Download, Feather, Sparkles, RefreshCw, Settings } from 'lucide-react'
 import { parseISO, format } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/uiStore'
 import { useEventStore } from '@/store/eventStore'
 import { useCalendarStore } from '@/store/calendarStore'
 import { navigatePeriod } from '@/utils/dates'
+import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { exportICS, downloadICS } from '@/utils/ical'
 import { parseNLPInput } from '@/utils/nlp'
@@ -16,8 +18,11 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { useSync, syncOnce } from '@/sync/useSync'
 import { SUPPORTED_LANGUAGES } from '@/i18n'
 import i18n from '@/i18n'
-import { TIMEZONES } from '@/utils/timezone'
+import { TIMEZONES, dayKeyInTz, toLocalTime } from '@/utils/timezone'
+import { handleAction, reportError } from '@/utils/errors'
 import { clsx } from 'clsx'
+
+const SettingsDialog = lazy(() => import('./SettingsDialog').then(module => ({ default: module.SettingsDialog })))
 
 function ImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useTranslation()
@@ -42,23 +47,21 @@ function ImportDialog({ open, onClose }: { open: boolean; onClose: () => void })
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const text = await file.text()
-    const n = await importFromICS(text, calendarId)
-    await loadRange(parseISO(selectedDate), view)
-    setCount(n)
+    try {
+      const text = await file.text()
+      const n = await importFromICS(text, calendarId)
+      await loadRange(parseISO(selectedDate), view)
+      setCount(n)
+    } catch (error) { reportError(error) }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-[var(--surface)] rounded-xl shadow-2xl p-5 w-80 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-[var(--text-primary)]">{t('importDialog.title')}</h3>
-          <button onClick={onClose} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"><X size={16} /></button>
-        </div>
+    <Dialog open={open} onOpenChange={value => !value && onClose()} title={t('importDialog.title')} className="max-w-sm">
+      <div className="p-5 space-y-4">
         <div>
           <label className="text-xs font-medium text-[var(--text-secondary)]">{t('importDialog.importInto')}</label>
           <select
+            aria-label={t('importDialog.importInto')}
             value={calendarId}
             onChange={e => setCalendarId(e.target.value)}
             className="mt-1 h-8 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -78,7 +81,7 @@ function ImportDialog({ open, onClose }: { open: boolean; onClose: () => void })
           </p>
         )}
       </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -87,7 +90,6 @@ export function Header() {
   const locale = useDateLocale()
   const { view, selectedDate, setView, setSelectedDate, goToToday, openNewEvent, isDarkTheme, toggleTheme, toggleSidebar, setMobileMenuOpen, showWeekNumbers, toggleWeekNumbers, timezone, setTimezone, designTheme, toggleDesignTheme } = useUIStore()
   const isMobile = useIsMobile()
-  const { events } = useEventStore()
   const { calendars } = useCalendarStore()
   const { search } = useEventStore()
 
@@ -95,6 +97,8 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<EventInstance[]>([])
   const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const searchRequest = useRef(0)
   const [showImport, setShowImport] = useState(false)
   const [nlpSuggestion, setNlpSuggestion] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -115,11 +119,13 @@ export function Header() {
   })()
 
   const handleSearchChange = async (q: string) => {
+    const request = ++searchRequest.current
     setSearchQuery(q)
     if (q.trim().length > 1) {
       const results = await search(q)
+      const nlp = await parseNLPInput(q)
+      if (request !== searchRequest.current) return
       setSearchResults(results)
-      const nlp = parseNLPInput(q)
       setNlpSuggestion(nlp ? t('nlp.createSuggestion', { title: nlp.title }) : null)
     } else {
       setSearchResults([])
@@ -128,20 +134,20 @@ export function Header() {
   }
 
   const handleSearchSelect = (inst: EventInstance) => {
-    setSelectedDate(format(parseISO(inst.instanceStart), 'yyyy-MM-dd'))
+    setSelectedDate(dayKeyInTz(inst.instanceStart, timezone))
     setSearchQuery('')
     setSearchResults([])
     setIsSearchFocused(false)
   }
 
-  const handleExport = () => {
-    const ics = exportICS(events, 'My Calendar')
+  const handleExport = async () => {
+    const ics = exportICS(await db.events.toArray(), 'Calendar', await db.deletedInstances.toArray())
     downloadICS(ics)
   }
 
-  const handleNLPCreate = () => {
+  const handleNLPCreate = async () => {
     if (!searchQuery) return
-    const result = parseNLPInput(searchQuery)
+    const result = await parseNLPInput(searchQuery)
     if (result) {
       openNewEvent({ title: result.title, start: result.start.toISOString(), end: result.end.toISOString(), allDay: result.allDay })
     } else {
@@ -159,7 +165,7 @@ export function Header() {
       <div className="flex items-center gap-2 md:gap-3 min-w-0">
         <button
           onClick={() => (isMobile ? setMobileMenuOpen(true) : toggleSidebar())}
-          aria-label="Menu"
+          aria-label={t('actions.menu')}
           className="w-8 h-8 flex items-center justify-center rounded-[var(--r-sm)] text-[var(--text-tertiary)] shrink-0 transition-colors"
           onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
           onMouseLeave={e => (e.currentTarget.style.background = '')}
@@ -190,6 +196,7 @@ export function Header() {
           </button>
           <div className="hidden md:flex gap-0.5">
             <button
+              aria-label={t('actions.previous')}
               onClick={() => setSelectedDate(format(navigatePeriod(currentDate, view, -1), 'yyyy-MM-dd'))}
               className="w-8 h-8 flex items-center justify-center rounded-[var(--r-sm)] text-[var(--text-secondary)] transition-colors"
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
@@ -198,6 +205,7 @@ export function Header() {
               <ChevronLeft size={17} strokeWidth={2.2} />
             </button>
             <button
+              aria-label={t('actions.next')}
               onClick={() => setSelectedDate(format(navigatePeriod(currentDate, view, 1), 'yyyy-MM-dd'))}
               className="w-8 h-8 flex items-center justify-center rounded-[var(--r-sm)] text-[var(--text-secondary)] transition-colors"
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
@@ -214,11 +222,11 @@ export function Header() {
           <input
             ref={searchRef}
             value={searchQuery}
-            onChange={e => handleSearchChange(e.target.value)}
+            onChange={e => { void handleSearchChange(e.target.value).catch(reportError) }}
             onFocus={e => { setIsSearchFocused(true); (e.target as HTMLElement).style.background = 'var(--surface)' }}
             onBlur={e => { setTimeout(() => setIsSearchFocused(false), 150); (e.target as HTMLElement).style.background = 'var(--surface-secondary)' }}
             onKeyDown={e => {
-              if (e.key === 'Enter') handleNLPCreate()
+              if (e.key === 'Enter') void handleNLPCreate().catch(reportError)
               if (e.key === 'Escape') { setSearchQuery(''); setSearchResults([]); searchRef.current?.blur() }
             }}
             placeholder={t('header.searchPlaceholder')}
@@ -229,7 +237,7 @@ export function Header() {
             <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xl z-50 overflow-hidden">
               {nlpSuggestion && (
                 <button
-                  onClick={handleNLPCreate}
+                  onClick={handleAction(handleNLPCreate)}
                   className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--surface-secondary)] text-left border-b border-[var(--border)] transition-colors"
                 >
                   <Plus size={13} className="text-[var(--accent)] shrink-0" />
@@ -250,7 +258,7 @@ export function Header() {
                       <div className="text-sm font-medium text-[var(--text-primary)] truncate">{inst.event.title}</div>
                       <div className="text-xs text-[var(--text-secondary)]">
                         {format(parseISO(inst.instanceStart), 'EEE, MMM d', { locale })}
-                        {!inst.event.allDay && ` · ${format(parseISO(inst.instanceStart), 'h:mma')}`}
+                        {!inst.event.allDay && ` · ${format(toLocalTime(inst.instanceStart, timezone), 'h:mma')}`}
                       </div>
                     </div>
                   </button>
@@ -263,8 +271,9 @@ export function Header() {
         {/* sync button */}
         <button
           onClick={() => syncOnce()}
+          aria-label={t('actions.sync')}
           disabled={syncState.syncing}
-          title={syncState.lastSyncError || (syncState.syncing ? 'Syncing…' : 'Sync')}
+          title={syncState.lastSyncError || t(syncState.syncing ? 'actions.syncing' : 'actions.sync')}
           className="w-7 h-7 flex items-center justify-center rounded-[var(--r-sm)] text-[var(--text-secondary)] transition-colors"
           onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
           onMouseLeave={e => (e.currentTarget.style.background = '')}
@@ -277,7 +286,7 @@ export function Header() {
           <select
             value={timezone}
             onChange={e => setTimezone(e.target.value)}
-            title="Timezone"
+            title={t('actions.timezone')} aria-label={t('actions.timezone')}
             className="hidden md:block h-[28px] rounded-[var(--r-sm)] border border-[var(--border)] bg-transparent px-1.5 text-[11px] font-medium text-[var(--text-secondary)] focus:outline-none cursor-pointer max-w-[68px]"
           >
             {TIMEZONES.map(group => (
@@ -289,7 +298,8 @@ export function Header() {
             ))}
           </select>
           <select
-            value={i18n.language}
+            aria-label={t('actions.language')}
+            value={i18n.resolvedLanguage}
             onChange={e => i18n.changeLanguage(e.target.value)}
             className="h-[28px] rounded-[var(--r-sm)] border border-[var(--border)] bg-transparent px-1.5 text-[11px] font-medium text-[var(--text-secondary)] focus:outline-none cursor-pointer"
           >
@@ -298,16 +308,16 @@ export function Header() {
             ))}
           </select>
           {([
-            { icon: <Upload size={13} />, action: () => setShowImport(true), title: 'Import' },
-            { icon: <Download size={13} />, action: handleExport, title: 'Export' },
-            { icon: <span className={`text-[10px] font-bold ${showWeekNumbers ? '' : 'opacity-40'}`}>W#</span>, action: toggleWeekNumbers, title: 'Week numbers' },
-            { icon: designTheme === 'editorial' ? <Feather size={13} /> : <Sparkles size={13} />, action: toggleDesignTheme, title: designTheme === 'editorial' ? 'Design: Editorial (click for Fantastical)' : 'Design: Fantastical (click for Editorial)' },
-            { icon: isDarkTheme ? <Sun size={13} /> : <Moon size={13} />, action: toggleTheme, title: 'Theme' },
+            { icon: <Upload size={13} />, action: () => setShowImport(true), title: t('actions.import') },
+            { icon: <Download size={13} />, action: handleExport, title: t('actions.export') },
+            { icon: <span className={`text-[10px] font-bold ${showWeekNumbers ? 'underline' : ''}`}>W#</span>, action: toggleWeekNumbers, title: t('actions.weekNumbers') },
+            { icon: designTheme === 'editorial' ? <Feather size={13} /> : <Sparkles size={13} />, action: toggleDesignTheme, title: t('actions.design') },
+            { icon: isDarkTheme ? <Sun size={13} /> : <Moon size={13} />, action: toggleTheme, title: t('actions.theme') },
           ] as const).map(({ icon, action, title }, i) => (
             <button
               key={i}
-              onClick={action as () => void}
-              title={title as string}
+              onClick={handleAction(action)}
+              title={title as string} aria-label={title as string}
               className="w-7 h-7 flex items-center justify-center rounded-[var(--r-sm)] text-[var(--text-secondary)] transition-colors"
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
               onMouseLeave={e => (e.currentTarget.style.background = '')}
@@ -340,6 +350,8 @@ export function Header() {
 
       </div>{/* end right */}
 
+      <button aria-label={t('actions.settings')} title={t('actions.settings')} onClick={() => setShowSettings(true)} className="w-8 h-8 flex items-center justify-center"><Settings size={16} /></button>
+      {showSettings && <Suspense fallback={null}><SettingsDialog onClose={() => setShowSettings(false)} /></Suspense>}
       <ImportDialog open={showImport} onClose={() => setShowImport(false)} />
     </header>
   )

@@ -2,7 +2,7 @@
 
 # Calendar
 
-**Open-source personal calendar with full offline support - month, week, day, agenda, and year views, recurring events, natural language input, two design themes, and a native desktop app. No accounts, no telemetry, no server required**
+**Personal calendar with local storage, authenticated cross-device synchronization, recurring events, tasks, backups and a native desktop app**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
@@ -18,7 +18,9 @@
 
 ## Overview
 
-Calendar is a fully client-side web app that stores everything in the browser's IndexedDB. There is no backend, no authentication, and no network calls after the page loads. Your events never leave your device unless you explicitly export them
+Calendar keeps a local working copy in IndexedDB and synchronizes it with a Cloudflare Pages Functions / D1 server after sign-in. Each server and user has a separate local database. Sessions expire after eight hours; the web app uses an HttpOnly cookie and the desktop client keeps its bearer token in memory
+
+Edits work against the local database and synchronize when the server is available. Reloading offline requires a previously cached production build and a locally remembered unexpired session; signing in and renewing an expired session require connectivity
 
 The interface is modelled after Google Calendar and Fantastical - keyboard-first navigation, time-grid week/day views with overlap layout, natural language parsing in the search bar, recurring event editing with per-instance exceptions, drag-and-drop rescheduling, and two switchable design themes
 
@@ -60,7 +62,8 @@ Pre-built binaries are published automatically with every release via GitHub Act
 | 🎨 | **Two design themes** | Editorial (warm cream + serif) and Fantastical (neutral, Apple-like) - switch live in the header |
 | 📱 | **Mobile layout** | Slide-in drawer sidebar, bottom navigation bar, swipe left/right to navigate |
 | 🖥️ | **Native desktop app** | Tauri v2 - ~10 MB binary, works offline, IndexedDB persists across sessions |
-| 📵 | **100% offline** | Everything runs in the browser or native WebView; IndexedDB is the only storage |
+| 🔄 | **Revision-based sync** | Per-user D1 storage, paginated journal, explicit conflict resolution |
+| 💾 | **Backups** | Full local JSON backup and restore; scheduled D1 export and restore validation |
 
 ---
 
@@ -87,27 +90,83 @@ Pre-built binaries are published automatically with every release via GitHub Act
 
 ## Getting started
 
-```bash
-git clone https://github.com/jarryuser/calendar.git
-cd calendar
-npm install
-npm run dev        # → http://localhost:5173
-```
-
-No environment variables, no API keys, no configuration needed. Open the URL and start adding events
-
-To build the web app for production:
+Use Node.js 24 LTS, npm, and a Cloudflare account for deployment; local development uses Wrangler's local D1 database
 
 ```bash
-npm run build      # outputs to dist/
-npm run preview    # serve the built output locally
+npm ci
+npm run db:migrate:local
 ```
 
-The output is a static site - deploy it anywhere: GitHub Pages, Netlify, Cloudflare Pages, or a plain nginx server
+Create an untracked `.dev.vars` with a long random password / signing secret
+
+```dotenv
+AUTH_TOKEN=replace-with-a-long-random-secret
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+Start the frontend and API in separate terminals
+
+```bash
+npm run dev
+npm run pages:dev
+```
+
+Open `http://localhost:5173`, leave the server URL as `/api`, use the username `personal` and the password from `AUTH_TOKEN`
+
+```bash
+npm test
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
+
+The browser suite runs against the real Functions handlers backed by a temporary SQLite database; it does not use your Cloudflare account or production data
+
+### Deploying and migrating
+
+Set the D1 database ID in `wrangler.jsonc` to your own database and configure the Pages secret `AUTH_TOKEN`; configure `ALLOWED_ORIGINS` when a separate frontend origin is used
+
+```bash
+npm run backup:d1
+npm run db:migrate:remote
+npm run pages:deploy
+```
+
+For a new empty database, run the migration before the first backup. For an existing database, back up before migrating; `0001_revision_sync.sql` copies legacy records into the `personal` account and retains the original tables
+
+Deploy the client and Functions together. Protocol 2 rejects older clients instead of accepting timestamp-based writes; no automatic production migration runs from a normal git push
+
+### Separate user accounts
+
+`AUTH_TOKEN` signs sessions and serves as the `personal` password only when `AUTH_USERS` is absent. To enable separate accounts, hash each password using stdin and store a JSON object in the Pages secret `AUTH_USERS`
+
+```bash
+node scripts/password-hash.mjs
+```
+
+Enter the password on stdin and finish input with EOF; the command returns `{"salt":"…","hash":"…"}`. Set `AUTH_USERS` to an object such as `{"alice":{"salt":"…","hash":"…"}}`; use the `personal` username for the owner of migrated data if needed
+
+Passwords use PBKDF2-SHA256; sign-in is limited to ten attempts per IP / username in fifteen minutes. Usernames select isolated server records and local databases; changing `AUTH_TOKEN` invalidates all sessions
+
+### Backups and recovery
+
+Settings offers a complete JSON backup of calendars, events, tasks, recurrence exclusions and preferences. Restore validates the file before writing and asks before replacing local data; restored changes synchronize with the current account
+
+ICS is an interchange format, not a full application backup. Imported components preserve recurrence rules, exceptions and timezone definitions; unsupported RANGE exceptions or missing timezone definitions produce a visible error
+
+`npm run backup:d1` exports D1 to ignored `backups/` and restores the dump in an in-memory SQLite database to check integrity and journal revisions. The scheduled workflow runs weekly and keeps artifacts for thirty days; add repository secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `BACKUP_ENCRYPTION_KEY` to enable it. Scheduled artifacts are encrypted with AES-256-GCM; the encryption key is a base64-encoded random 32-byte value and must be stored separately from the artifacts
+
+Decrypt scheduled exports with `node scripts/encrypt-backup.mjs decrypt backup.sql.enc backup.sql` using the original `BACKUP_ENCRYPTION_KEY` environment variable
+
+Before production recovery, download and verify the export with `npm run check:backup -- path/to/backup.sql`, restore to a separate D1 database and verify the account data there. Point a maintenance deployment at the recovered database only after verification; keep the original database and journal until recovery is confirmed
+
+Tombstones and journal entries are retained so an old offline device cannot silently resurrect deleted data; backups may contain private calendar information and should have restricted access
 
 ---
 
 ## Desktop app (Tauri)
+
+Use the HTTPS URL of your deployed API on the sign-in screen, for example `https://calendar.example.com/api`; the packaged application does not bundle a sync server
 
 The same codebase ships as a native desktop app via [Tauri](https://tauri.app/) v2. It uses the system WebView (WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux), so the binary is ~10 MB and IndexedDB works exactly as in the browser
 
@@ -186,6 +245,8 @@ src/
 │   ├── timezone.ts        - date-fns-tz helpers
 │   ├── dates.ts           - grid helpers, range calculation
 │   └── colors.ts          - 9-color token map
+├── data/                 - backup, restore, imports, deletion queue and conflict resolution
+├── sync/                 - client sessions, revisions and paginated synchronization
 ├── hooks/
 │   ├── useKeyboardShortcuts.ts
 │   ├── useNotifications.ts
@@ -252,10 +313,12 @@ This keeps the database small and makes bulk edits ("change all future instances
 
 ## Known limitations
 
-- **Notifications require the tab or app to be open** - the Service Worker fires notifications when the tab is in the background, but not when the browser is fully closed
-- **iCal import ignores VTIMEZONE components** - events are imported as-is; if the source file uses non-UTC floating times, the displayed time may differ from the original app
-- **No cross-device sync** - IndexedDB is per-browser / per-app; a second device starts with an empty calendar. Use the iCal export/import to move data manually
-- **RRULE expansion is in-memory** - very long recurring series (daily for 10 years) expand correctly but are not paginated; loading a wide date range may be slow for extreme cases
+- Notifications require the tab or desktop app to be running and permission must be enabled in Settings
+- Imported rules are preserved; the simple recurrence editor does not edit advanced imported RRULE clauses
+- ICS RANGE exceptions and events with missing timezone definitions are rejected with an error rather than simplified
+- Native drag handles on clipped continuation segments are disabled; edit a multiday event in its form or move its starting segment
+- The journal and tombstones grow over time; retention requires a coordinated resnapshot protocol before pruning
+- An already opened account remains editable offline until its locally remembered session expires; server access always requires a valid signed session
 
 ---
 

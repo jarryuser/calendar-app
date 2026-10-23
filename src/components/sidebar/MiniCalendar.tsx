@@ -1,14 +1,17 @@
+import { useTranslation } from 'react-i18next'
 import { useMemo, useState } from 'react'
 import { parseISO, format, isSameDay, isSameMonth, isToday, addMonths, subMonths, addDays, startOfWeek, getISOWeek } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { useEventStore } from '@/store/eventStore'
 import { getMonthGrid } from '@/utils/dates'
+import { dayKeyInTz } from '@/utils/timezone'
 import { useDateLocale } from '@/i18n/useDateLocale'
 
 export function MiniCalendar() {
+  const { t } = useTranslation()
   const locale = useDateLocale()
-  const { selectedDate, setSelectedDate, showWeekNumbers } = useUIStore()
+  const { selectedDate, setSelectedDate, showWeekNumbers, timezone } = useUIStore()
   const { instances } = useEventStore()
 
   const [viewDate, setViewDate] = useState(() => parseISO(selectedDate))
@@ -25,10 +28,10 @@ export function MiniCalendar() {
   const daysWithEvents = useMemo(() => {
     const set = new Set<string>()
     for (const inst of instances) {
-      set.add(format(parseISO(inst.instanceStart), 'yyyy-MM-dd'))
+      set.add(dayKeyInTz(inst.instanceStart, timezone))
     }
     return set
-  }, [instances])
+  }, [instances, timezone])
 
   const selected = parseISO(selectedDate)
 
@@ -40,13 +43,13 @@ export function MiniCalendar() {
         </span>
         <div className="flex gap-0.5">
           <button
-            onClick={() => setViewDate(d => subMonths(d, 1))}
+            aria-label={t('actions.previous')} onClick={() => setViewDate(d => subMonths(d, 1))}
             className="w-6 h-6 flex items-center justify-center rounded hover:bg-[var(--surface-tertiary)] text-[var(--text-tertiary)] transition-colors"
           >
             <ChevronLeft size={14} />
           </button>
           <button
-            onClick={() => setViewDate(d => addMonths(d, 1))}
+            aria-label={t('actions.next')} onClick={() => setViewDate(d => addMonths(d, 1))}
             className="w-6 h-6 flex items-center justify-center rounded hover:bg-[var(--surface-tertiary)] text-[var(--text-tertiary)] transition-colors"
           >
             <ChevronRight size={14} />
@@ -88,7 +91,7 @@ export function MiniCalendar() {
             <button
               key={key}
               onClick={() => { setSelectedDate(key); setViewDate(day) }}
-              className={`relative w-full aspect-square flex items-center justify-center text-[12px] rounded-full transition-colors font-[480] ${!inMonth ? 'opacity-30' : ''}`}
+              className={`relative w-full aspect-square flex items-center justify-center text-[12px] rounded-full transition-colors font-[480] ${!inMonth ? 'text-[var(--text-tertiary)]' : ''}`}
               style={{
                 background: today ? 'var(--accent)' : isSelected ? 'var(--surface-tertiary)' : '',
                 color: today ? '#fff' : isSelected ? 'var(--text-primary)' : 'var(--text-primary)',

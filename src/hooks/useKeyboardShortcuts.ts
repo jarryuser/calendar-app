@@ -8,6 +8,7 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
       const tag = (e.target as HTMLElement).tagName
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
       if ((e.target as HTMLElement).isContentEditable) return

@@ -15,6 +15,8 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
           key={color}
           type="button"
           title={color}
+          aria-label={color}
+          aria-pressed={value === color}
           onClick={() => onChange(color)}
           className="w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
           style={{ backgroundColor: COLOR_HEX[color] }}

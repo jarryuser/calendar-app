@@ -1,5 +1,4 @@
-import * as chrono from 'chrono-node'
-import { addHours } from 'date-fns'
+import { addHours, addDays } from 'date-fns'
 
 export interface NLPResult {
   title: string
@@ -8,7 +7,8 @@ export interface NLPResult {
   allDay: boolean
 }
 
-export function parseNLPInput(text: string, refDate?: Date): NLPResult | null {
+export async function parseNLPInput(text: string, refDate?: Date): Promise<NLPResult | null> {
+  const chrono = await import('chrono-node')
   const results = chrono.parse(text, refDate ?? new Date(), { forwardDate: true })
   if (!results.length) return null
 
@@ -22,7 +22,7 @@ export function parseNLPInput(text: string, refDate?: Date): NLPResult | null {
   if (parsed.end) {
     end = parsed.end.date()
   } else {
-    end = allDay ? start : addHours(start, 1)
+    end = allDay ? addDays(start, 1) : addHours(start, 1)
   }
 
   // убираем найденную временную фразу из title

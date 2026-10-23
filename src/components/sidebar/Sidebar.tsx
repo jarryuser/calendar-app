@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { CalendarDays, Moon, Sun, Feather, Sparkles } from 'lucide-react'
 import { MiniCalendar } from './MiniCalendar'
 import { CalendarList } from './CalendarList'
@@ -5,6 +6,7 @@ import { TaskList } from './TaskList'
 import { useUIStore } from '@/store/uiStore'
 
 export function Sidebar() {
+  const { t } = useTranslation()
   const { isDarkTheme, toggleTheme, designTheme, toggleDesignTheme } = useUIStore()
 
   return (
@@ -36,8 +38,8 @@ export function Sidebar() {
       {/* mobile-only quick settings — these controls live in the header on desktop */}
       <div className="md:hidden flex items-center gap-1 px-4 py-3 border-t border-[var(--border)] safe-area-bottom">
         {([
-          { icon: isDarkTheme ? <Sun size={16} /> : <Moon size={16} />, action: toggleTheme, label: 'Theme' },
-          { icon: designTheme === 'editorial' ? <Feather size={16} /> : <Sparkles size={16} />, action: toggleDesignTheme, label: 'Design' },
+          { icon: isDarkTheme ? <Sun size={16} /> : <Moon size={16} />, action: toggleTheme, label: t('actions.theme') },
+          { icon: designTheme === 'editorial' ? <Feather size={16} /> : <Sparkles size={16} />, action: toggleDesignTheme, label: t('actions.design') },
         ] as const).map(({ icon, action, label }) => (
           <button
             key={label}

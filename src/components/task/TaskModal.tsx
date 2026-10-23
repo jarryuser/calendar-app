@@ -1,3 +1,4 @@
+import { handleAction, reportError } from '@/utils/errors'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Dialog } from '@/components/ui/Dialog'
@@ -42,7 +43,7 @@ export function TaskModal({ open, onClose, task, defaultCalendarId, defaultDueDa
   }, [open, task])
 
   const handleSave = async () => {
-    if (!title.trim()) return
+    if (!title.trim() || saving || !calendarId) return
     setSaving(true)
     try {
       const data = {
@@ -59,7 +60,7 @@ export function TaskModal({ open, onClose, task, defaultCalendarId, defaultDueDa
         await create(data)
       }
       onClose()
-    } finally {
+    } catch (error) { reportError(error) } finally {
       setSaving(false)
     }
   }
@@ -119,7 +120,7 @@ export function TaskModal({ open, onClose, task, defaultCalendarId, defaultDueDa
 
         <div className="flex items-center justify-between pt-1 border-t border-[var(--border)]">
           {task ? (
-            <Button variant="ghost" size="sm" onClick={handleDelete} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
+            <Button variant="ghost" size="sm" onClick={handleAction(handleDelete)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
               <Trash2 size={14} />
               {t('eventModal.delete')}
             </Button>

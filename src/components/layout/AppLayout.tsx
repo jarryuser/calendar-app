@@ -1,14 +1,12 @@
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, lazy, Suspense } from 'react'
 import { parseISO, format } from 'date-fns'
 import { Header } from './Header'
 import { BottomNav } from './BottomNav'
 import { Sidebar } from '@/components/sidebar/Sidebar'
+import { liveQuery } from 'dexie'
+import { reportError } from '@/utils/errors'
+import { useCalendarStore } from '@/store/calendarStore'
 import { MonthView } from '@/components/views/MonthView'
-import { WeekView } from '@/components/views/WeekView'
-import { DayView } from '@/components/views/DayView'
-import { AgendaView } from '@/components/views/AgendaView'
-import { YearView } from '@/components/views/YearView'
-import { EventModal } from '@/components/event/EventModal'
 import { EventPopover } from '@/components/event/EventPopover'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/store/uiStore'
@@ -21,36 +19,30 @@ import { useSwipe } from '@/hooks/useSwipe'
 import { navigatePeriod } from '@/utils/dates'
 import { clsx } from 'clsx'
 
+const EventModal = lazy(() => import('@/components/event/EventModal').then(module => ({ default: module.EventModal })))
+const WeekView = lazy(() => import('@/components/views/WeekView').then(module => ({ default: module.WeekView })))
+const DayView = lazy(() => import('@/components/views/DayView').then(module => ({ default: module.DayView })))
+const AgendaView = lazy(() => import('@/components/views/AgendaView').then(module => ({ default: module.AgendaView })))
+const YearView = lazy(() => import('@/components/views/YearView').then(module => ({ default: module.YearView })))
+
 export function AppLayout() {
   useTheme()
   useKeyboardShortcuts()
   useNotifications()
   const { toast, dismiss } = useToast()
 
-  const { view, selectedDate, setSelectedDate, sidebarCollapsed, mobileMenuOpen, setMobileMenuOpen } = useUIStore()
+  const { view, selectedDate, setSelectedDate, sidebarCollapsed, mobileMenuOpen, setMobileMenuOpen, timezone, isEventModalOpen } = useUIStore()
   const { loadRange } = useEventStore()
   const { load: loadTasks } = useTaskStore()
 
   useEffect(() => {
-    loadTasks()
-  }, [])
-
-  const lastReloadRef = useRef(0)
-  useEffect(() => {
-    loadRange(parseISO(selectedDate), view)
-  }, [selectedDate, view])
-
-  // fallback auto-refresh every 30s while the tab is visible
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (document.visibilityState !== 'visible') return
-      const now = Date.now()
-      if (now - lastReloadRef.current < 10_000) return
-      lastReloadRef.current = now
-      loadRange(parseISO(selectedDate), view)
-    }, 30_000)
-    return () => clearInterval(id)
-  }, [selectedDate, view])
+    const subscriptions = [
+      liveQuery(() => loadRange(parseISO(selectedDate), view)).subscribe({ error: reportError }),
+      liveQuery(() => loadTasks()).subscribe({ error: reportError }),
+      liveQuery(() => useCalendarStore.getState().load()).subscribe({ error: reportError }),
+    ]
+    return () => subscriptions.forEach(subscription => subscription.unsubscribe())
+  }, [selectedDate, view, timezone, loadRange, loadTasks])
 
   // close the mobile drawer whenever navigation changes (date / view)
   useEffect(() => {
@@ -116,16 +108,16 @@ export function AppLayout() {
           className="flex-1 overflow-hidden pb-[56px] md:pb-0"
           {...swipeHandlers}
         >
-          <ActiveView />
+          <Suspense fallback={<div role="status" className="p-4">…</div>}><ActiveView /></Suspense>
         </main>
       </div>
 
       {/* bottom nav — mobile only */}
       <BottomNav />
 
-      <EventModal />
+      {isEventModalOpen && <Suspense fallback={null}><EventModal /></Suspense>}
       <EventPopover />
-      {toast && <Toast {...toast} onDismiss={dismiss} />}
+      {toast && <Toast key={toast.id} {...toast} onDismiss={dismiss} />}
     </div>
   )
 }

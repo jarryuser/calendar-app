@@ -64,7 +64,10 @@ jobs:
             libayatana-appindicator3-dev
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Validate frontend
+        run: npm test && npm run build
 
       - name: Build and release
         uses: tauri-apps/tauri-action@v0

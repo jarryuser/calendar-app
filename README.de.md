@@ -2,7 +2,7 @@
 
 # Calendar
 
-**Open-Source-Kalender mit vollständiger Offline-Unterstützung - Monats-, Wochen-, Tages-, Agenda- und Jahresansichten, Wiederholungstermine, Eingabe in natürlicher Sprache, zwei Designthemen und eine native Desktop-App. Keine Konten, keine Telemetrie, kein Server**
+**Persönlicher Kalender mit lokalem Speicher, authentifizierter Synchronisierung, Aufgaben, Sicherungen und Desktop-App**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
@@ -18,7 +18,7 @@
 
 ## Übersicht
 
-Calendar ist eine vollständig clientseitige Web-App, die alles in der IndexedDB des Browsers speichert. Es gibt kein Backend, keine Authentifizierung und keine Netzwerkanfragen nach dem Laden der Seite. Ihre Termine verlassen das Gerät nie, es sei denn, Sie exportieren sie ausdrücklich
+Calendar speichert eine lokale Kopie in IndexedDB und synchronisiert sie nach der Anmeldung mit Cloudflare Pages Functions und D1. Server und Benutzer verwenden getrennte Datenbanken; zur Anmeldung ist ein Server erforderlich und Sitzungen gelten acht Stunden
 
 Die Benutzeroberfläche ist an Google Calendar und Fantastical angelehnt - tastaturgesteuerte Navigation, Zeitraster für Wochen-/Tagesansichten, Parsing natürlicher Sprache in der Suchleiste, Bearbeitung von Wiederholungsterminen mit Ausnahmen und Drag-and-Drop zum Umplanen
 
@@ -60,7 +60,6 @@ Fertige Binärdateien werden automatisch mit jedem Release über GitHub Actions 
 | 🎨 | **Zwei Designthemen** | Editorial (warmes Creme + Serif) und Fantastical (neutral, Apple-Stil) |
 | 📱 | **Mobiles Layout** | Einschiebbares Sidebar-Drawer, untere Navigationsleiste, Wisch-Gesten |
 | 🖥️ | **Native Desktop-App** | Tauri v2 - ~10 MB, funktioniert offline |
-| 📵 | **100% offline** | IndexedDB ist der einzige Speicher |
 
 ---
 
@@ -87,23 +86,15 @@ Fertige Binärdateien werden automatisch mit jedem Release über GitHub Actions 
 
 ## Erste Schritte
 
-```bash
-git clone https://github.com/jarryuser/calendar.git
-cd calendar
-npm install
-npm run dev        # → http://localhost:5173
-```
-
-Keine Umgebungsvariablen, keine API-Schlüssel, keine weitere Konfiguration nötig
-
-Produktions-Build:
+Aktuelle Anleitungen zu Server, Migration, Benutzern und Sicherungen: [Handbuch](README.md#getting-started)
 
 ```bash
-npm run build      # gibt nach dist/ aus
-npm run preview    # lokale Vorschau des Builds
+npm ci
+npm run db:migrate:local
+npm run dev
+# In a second terminal with .dev.vars configured
+npm run pages:dev
 ```
-
-Die Ausgabe ist eine statische Website: GitHub Pages, Netlify, Cloudflare Pages oder nginx
 
 ---
 
@@ -174,10 +165,7 @@ src/
 
 ## Bekannte Einschränkungen
 
-- **Benachrichtigungen erfordern einen offenen Tab oder die App** - der Service Worker funktioniert im Hintergrund, aber nicht wenn der Browser vollständig geschlossen ist
-- **iCal-Import ignoriert VTIMEZONE** - wenn die Quelldatei Nicht-UTC-Zeiten verwendet, kann die Anzeige abweichen
-- **Keine geräteübergreifende Synchronisation** - IndexedDB ist pro Browser/App gebunden
-- **RRULE-Erweiterung erfolgt im Arbeitsspeicher** - sehr lange Wiederholungsserien können das Laden eines breiten Datumsbereichs verlangsamen
+Einschränkungen: Mitteilungen benötigen eine geöffnete App; komplexe importierte Regeln bleiben erhalten, sind im einfachen Editor aber nicht bearbeitbar; nicht unterstützte ICS RANGE-Ausnahmen werden mit einem Fehler abgelehnt
 
 ---
 

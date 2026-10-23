@@ -1,3 +1,4 @@
+import { trackDeletion } from '@/data/deletions'
 import { create } from 'zustand'
 import { db } from '@/db'
 import type { Task } from '@/types/task'
@@ -54,9 +55,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   remove: async (id) => {
-    const { trackDeletion } = await import('@/sync/engine')
-    await db.tasks.delete(id)
-    await trackDeletion('task', id)
+    await db.transaction('rw', [db.tasks, db.syncQueue], async () => {
+      await db.tasks.delete(id)
+      await trackDeletion('task', id)
+    })
     set(s => ({ tasks: s.tasks.filter(t => t.id !== id) }))
   },
 }))

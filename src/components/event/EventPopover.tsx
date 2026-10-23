@@ -1,3 +1,5 @@
+import { toLocalTime } from '@/utils/timezone'
+import { handleAction } from '@/utils/errors'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { parseISO, format, isSameDay } from 'date-fns'
@@ -78,9 +80,7 @@ function DeleteButton({
           onClick={() => onDelete(scope)}
           className="text-left px-2.5 py-1 rounded-lg text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
         >
-          {scope === 'this' && 'This event'}
-          {scope === 'thisAndFollowing' && 'This & following'}
-          {scope === 'all' && 'All events'}
+          {t(`actions.${scope}`)}
         </button>
       ))}
     </div>
@@ -90,7 +90,7 @@ function DeleteButton({
 export function EventPopover() {
   const { t } = useTranslation()
   const locale = useDateLocale()
-  const { popover, closePopover, openEditEvent } = useUIStore()
+  const { popover, closePopover, openEditEvent, timezone } = useUIStore()
   const { events, remove, loadRange } = useEventStore()
   const { calendars } = useCalendarStore()
   const { view, selectedDate } = useUIStore()
@@ -122,11 +122,9 @@ export function EventPopover() {
   if (!popover || !event) return null
 
   const { top, left } = calcPosition(popover.anchor)
-  const instanceStart = parseISO(popover.instanceStart)
-  const instanceEnd = parseISO(
-    // compute end based on event duration
-    new Date(instanceStart.getTime() + (parseISO(event.end).getTime() - parseISO(event.start).getTime())).toISOString()
-  )
+  const instanceStart = event.allDay ? parseISO(popover.instanceStart) : toLocalTime(popover.instanceStart, timezone)
+  const endIso = new Date(parseISO(popover.instanceStart).getTime() + parseISO(event.end).getTime() - parseISO(event.start).getTime()).toISOString()
+  const instanceEnd = event.allDay ? parseISO(endIso) : toLocalTime(endIso, timezone)
 
   const dateLabel = event.allDay
     ? format(instanceStart, 'PPP', { locale })
@@ -146,6 +144,7 @@ export function EventPopover() {
 
   return createPortal(
     <div
+      role="dialog" aria-label={event.title}
       ref={ref}
       style={{ position: 'fixed', top, left, width: POPOVER_W, zIndex: 9999 }}
       className="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
@@ -162,6 +161,7 @@ export function EventPopover() {
           )}
         </div>
         <button
+          aria-label={t('actions.close')}
           onClick={closePopover}
           className="shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-secondary)] transition-colors"
         >
@@ -200,7 +200,7 @@ export function EventPopover() {
 
       {/* actions */}
       <div className="flex items-center justify-between px-2 py-2 border-t border-[var(--border)]">
-        <DeleteButton isRecurring={!!event.recurrence} onDelete={handleDelete} />
+        <DeleteButton isRecurring={!!event.recurrence} onDelete={scope => handleAction(() => handleDelete(scope))()} />
         <button
           onClick={handleEdit}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-primary)] transition-colors"

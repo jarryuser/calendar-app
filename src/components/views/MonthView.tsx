@@ -1,3 +1,4 @@
+import { reportError } from '@/utils/errors'
 import { useMemo, useState } from 'react'
 import {
   parseISO, format, isSameMonth, isToday, startOfDay,
@@ -17,7 +18,8 @@ import { useTaskStore } from '@/store/taskStore'
 import type { Task } from '@/types/task'
 import { getMonthGrid } from '@/utils/dates'
 import { getEventHex } from '@/utils/colors'
-import { dayKeyInTz } from '@/utils/timezone'
+import { instancesByDay as groupInstances } from '@/utils/intervals'
+import { dayKeyInTz, toLocalTime, shiftInTimezone } from '@/utils/timezone'
 import { useDateLocale } from '@/i18n/useDateLocale'
 import type { EventInstance, RecurringEditScope } from '@/types/event'
 import { clsx } from 'clsx'
@@ -32,12 +34,13 @@ function EventChip({
   isHidden: boolean
 }) {
   const { calendars } = useCalendarStore()
+  const { timezone } = useUIStore()
   const calendar = calendars.find(c => c.id === instance.event.calendarId)
   const color = instance.event.color ?? calendar?.color
   const hex = getEventHex(color)
 
   const { attributes, listeners, setNodeRef } = useDraggable({
-    id: `ev-${instance.event.id}-${instance.instanceStart}`,
+    id: `ev-${instance.event.id}-${instance.instanceStart}-${instance.segmentDay || ''}`,
     data: { inst: instance },
   })
 
@@ -67,7 +70,7 @@ function EventChip({
     >
       <span className="chip-bar-rail" style={{ background: hex }} />
       <span className="chip-bar-label">{instance.event.title}</span>
-      <span className="chip-bar-time">{format(parseISO(instance.instanceStart), 'h:mma')}</span>
+      <span className="chip-bar-time">{format(toLocalTime(instance.instanceStart, timezone), 'h:mma')}</span>
     </button>
   )
 }
@@ -115,6 +118,7 @@ function DroppableCell({
   return (
     <div
       ref={setNodeRef}
+      data-day-key={dayKey}
       onClick={onCellClick}
       className={clsx(
         'p-1.5 min-h-[100px] cursor-pointer transition-colors overflow-hidden',
@@ -207,13 +211,7 @@ export function MonthView() {
   )
 
   const instancesByDay = useMemo(() => {
-    const map = new Map<string, EventInstance[]>()
-    for (const inst of instances) {
-      if (!visibleCalendarIds.has(inst.event.calendarId)) continue
-      const key = dayKeyInTz(inst.instanceStart, timezone)
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(inst)
-    }
+    const map = groupInstances(instances.filter(instance => visibleCalendarIds.has(instance.event.calendarId)), timezone, format(grid[0], 'yyyy-MM-dd'), format(grid[grid.length - 1], 'yyyy-MM-dd'))
     for (const [, arr] of map) {
       arr.sort((a, b) => {
         if (a.event.allDay !== b.event.allDay) return a.event.allDay ? -1 : 1
@@ -221,7 +219,7 @@ export function MonthView() {
       })
     }
     return map
-  }, [instances, visibleCalendarIds, timezone])
+  }, [instances, visibleCalendarIds, timezone, grid])
 
   const tasksByDay = useMemo(() => {
     const map = new Map<string, typeof tasks>()
@@ -253,20 +251,20 @@ export function MonthView() {
       return
     }
 
-    const sourceDate = dayKeyInTz(inst.instanceStart, timezone)
+    const sourceDate = inst.segmentDay || dayKeyInTz(inst.instanceStart, timezone)
     if (sourceDate === targetDate) {
       setDraggingKey(null)
       return
     }
 
     const delta = differenceInDays(parseISO(targetDate), parseISO(sourceDate))
-    const newStart = addDays(parseISO(inst.instanceStart), delta)
-    const newEnd = addDays(parseISO(inst.instanceEnd), delta)
+    const newStart = shiftInTimezone(inst.instanceStart, delta, timezone)
+    const newEnd = shiftInTimezone(inst.instanceEnd, delta, timezone)
 
     const scope: RecurringEditScope = inst.isRecurring ? 'this' : 'all'
     await update(
       inst.event.id,
-      { start: newStart.toISOString(), end: newEnd.toISOString() },
+      { start: newStart, end: newEnd },
       scope,
       inst.isRecurring ? inst.instanceStart : undefined,
     )
@@ -285,7 +283,7 @@ export function MonthView() {
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+      onDragEnd={event => { void handleDragEnd(event).catch(reportError) }}
     >
       <div className="flex flex-col h-full select-none p-4">
         <div

@@ -64,7 +64,11 @@
     "ends": "Koniec",
     "endsNever": "Nikdy",
     "endsAfter": "Po N opakovaniach",
-    "endsOn": "Do dátumu"
+    "endsOn": "Do dátumu",
+    "summary": "Každých {{interval}} {{unit}}",
+    "onDays": "v dňoch {{days}}",
+    "countText": "Počet opakovaní: {{count}}",
+    "untilText": "do {{date}}"
   },
   "views": {
     "allDay": "celý deň",
@@ -94,5 +98,76 @@
     "dueDate": "Dátum",
     "empty": "Žiadne úlohy",
     "completed": "Dokončené"
+  },
+  "actions": {
+    "settings": "Nastavenia",
+    "retry": "Skúsiť znova",
+    "loading": "Načítavanie",
+    "backup": "Stiahnuť zálohu",
+    "restore": "Obnoviť zálohu",
+    "confirmRestore": "Nahradiť miestne údaje",
+    "notifications": "Zapnúť upozornenia",
+    "timezone": "Časové pásmo",
+    "language": "Jazyk",
+    "close": "Zavrieť",
+    "menu": "Ponuka",
+    "previous": "Predchádzajúce obdobie",
+    "next": "Nasledujúce obdobie",
+    "sync": "Synchronizovať",
+    "syncing": "Synchronizuje sa…",
+    "import": "Importovať",
+    "export": "Exportovať",
+    "weekNumbers": "Čísla týždňov",
+    "theme": "Téma",
+    "design": "Vzhľad",
+    "refresh": "Obnoviť",
+    "subscribe": "Odoberať",
+    "subscribing": "Prihlasovanie…",
+    "subscribeUrl": "Adresa kalendára",
+    "calendarName": "Názov kalendára",
+    "complete": "Označiť ako dokončené",
+    "incomplete": "Označiť ako nedokončené",
+    "undo": "Späť",
+    "this": "Táto udalosť",
+    "thisAndFollowing": "Táto a nasledujúce",
+    "all": "Všetky udalosti",
+    "more": "Ďalšie akcie",
+    "visibility": "Zmeniť viditeľnosť kalendára",
+    "start": "Začiatok",
+    "end": "Koniec"
+  },
+  "auth": {
+    "title": "Synchronizácia kalendára",
+    "description": "Pripojte sa k serveru",
+    "server": "Adresa servera",
+    "username": "Používateľské meno",
+    "password": "Heslo",
+    "connect": "Pripojiť",
+    "connecting": "Pripájanie…",
+    "logout": "Odhlásiť sa",
+    "signedIn": "Prihlásený ako {{username}}",
+    "failed": "Prihlásenie zlyhalo; skontrolujte údaje a server"
+  },
+  "messages": {
+    "storageFailed": "Miestne úložisko sa nepodarilo otvoriť; skontrolujte povolenia prehliadača",
+    "operationFailed": "Operácia zlyhala",
+    "restoreConfirm": "Miestne kalendáre, udalosti a úlohy sa nahradia a synchronizujú; najprv stiahnite zálohu",
+    "invalidInterval": "Vyberte kalendár a koniec po začiatku",
+    "eventMoved": "Udalosť presunutá",
+    "importedRule": "Importované pravidlo sa zachová; pre jednoduchšie pravidlo ho odstráňte"
+  },
+  "notifications": {
+    "default": "Upozornenia sú zatiaľ vypnuté",
+    "granted": "Upozornenia sú zapnuté počas behu aplikácie",
+    "denied": "Povoľte upozornenia v nastaveniach prehliadača",
+    "unsupported": "Prehliadač nepodporuje upozornenia",
+    "starting": "Začína teraz",
+    "inMinutes": "O {{count}} min"
+  },
+  "conflicts": {
+    "title": "Konflikty synchronizácie: {{count}}",
+    "details": "Porovnať uložené verzie",
+    "local": "Použiť moju verziu",
+    "remote": "Ponechať verziu servera"
   }
 }

@@ -5,7 +5,7 @@ import './i18n'
 import App from './App'
 import { setupDesktop } from './tauri'
 
-// Install the Tauri HTTP fetch before rendering (no-op in the browser)
+// Initialize desktop integration before rendering
 setupDesktop().finally(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

@@ -1,3 +1,4 @@
+import { handleAction } from '@/utils/errors'
 import { useState, useEffect } from 'react'
 import { Calendar, MapPin, AlignLeft, RefreshCw, Bell, Palette, Trash2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -9,7 +10,7 @@ import { useUIStore } from '@/store/uiStore'
 import { useEventStore } from '@/store/eventStore'
 import { useCalendarStore } from '@/store/calendarStore'
 import type { CalendarEvent, EventColor, RecurrenceRule, Reminder } from '@/types/event'
-import { parseISO, addHours } from 'date-fns'
+import { parseISO, addHours, addDays, format } from 'date-fns'
 import { getEventHex } from '@/utils/colors'
 import { toDatetimeLocalTz, fromDatetimeLocalTz } from '@/utils/timezone'
 import { clsx } from 'clsx'
@@ -51,6 +52,7 @@ export function EventModal() {
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showRecurrence, setShowRecurrence] = useState(false)
   const [showReminders, setShowReminders] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -83,26 +85,28 @@ export function EventModal() {
       setReminders([])
       setShowRecurrence(false)
     }
+    setSaveError('')
     setShowColorPicker(false)
     setShowReminders(false)
   }, [isEventModalOpen, editingEventId])
 
   const handleSave = async () => {
-    if (!title.trim()) return
+    if (!title.trim() || saving) return
     setSaving(true)
-    const eventData: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'> = {
-      title: title.trim(),
-      start: allDay ? start.slice(0, 10) : fromDatetimeLocalTz(start, timezone),
-      end: allDay ? end.slice(0, 10) : fromDatetimeLocalTz(end, timezone),
-      allDay,
-      description: description.trim() || undefined,
-      location: location.trim() || undefined,
-      color,
-      calendarId,
-      reminders,
-      recurrence: showRecurrence ? recurrence : undefined,
-    }
+    setSaveError('')
     try {
+      const startValue = allDay ? start.slice(0, 10) : fromDatetimeLocalTz(start, timezone)
+      let endValue = allDay ? end.slice(0, 10) : fromDatetimeLocalTz(end, timezone)
+      if (allDay && endValue === startValue) endValue = format(addDays(parseISO(startValue), 1), 'yyyy-MM-dd')
+      if (!calendarId || !startValue || !endValue || parseISO(endValue) <= parseISO(startValue)) {
+        throw new Error(t('messages.invalidInterval'))
+      }
+      const eventData: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'> = {
+        title: title.trim(), start: startValue, end: endValue, allDay,
+        description: description.trim() || undefined,
+        location: location.trim() || undefined, color, calendarId, reminders,
+        recurrence: showRecurrence ? recurrence : undefined,
+      }
       if (editingEvent) {
         await update(editingEvent.id, eventData, 'all', editingInstanceDate ?? undefined)
       } else {
@@ -110,6 +114,8 @@ export function EventModal() {
       }
       await loadRange(parseISO(selectedDate), view)
       closeEventModal()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : t('messages.operationFailed'))
     } finally {
       setSaving(false)
     }
@@ -156,6 +162,7 @@ export function EventModal() {
             </label>
             <div className="flex items-center gap-2">
               <input
+                aria-label={t('actions.start')}
                 type={allDay ? 'date' : 'datetime-local'}
                 value={allDay ? start.slice(0, 10) : start}
                 onChange={e => {
@@ -172,6 +179,7 @@ export function EventModal() {
               />
               <span className="text-[var(--text-tertiary)] text-sm">→</span>
               <input
+                aria-label={t('actions.end')}
                 type={allDay ? 'date' : 'datetime-local'}
                 value={allDay ? end.slice(0, 10) : end}
                 min={allDay ? start.slice(0, 10) : start}
@@ -278,7 +286,7 @@ export function EventModal() {
                 <span className="text-sm text-[var(--text-primary)]">
                   {t(`eventModal.reminder_${r.minutesBefore}`, { defaultValue: `${r.minutesBefore} min` })}
                 </span>
-                <button type="button" onClick={() => removeReminder(r.id)} className="text-[var(--text-tertiary)] hover:text-red-500 transition-colors">
+                <button type="button" aria-label={t('eventModal.delete')} onClick={() => removeReminder(r.id)} className="text-[var(--text-tertiary)] hover:text-red-500 transition-colors">
                   <X size={14} />
                 </button>
               </div>
@@ -296,9 +304,10 @@ export function EventModal() {
           </div>
         )}
 
+        {saveError && <p role="alert" className="text-sm text-red-500">{saveError}</p>}
         <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
           {editingEvent ? (
-            <Button variant="ghost" size="sm" onClick={handleDelete} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
+            <Button variant="ghost" size="sm" onClick={handleAction(handleDelete)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
               <Trash2 size={14} />
               {t('eventModal.delete')}
             </Button>

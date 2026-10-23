@@ -1,11 +1,13 @@
+import { trackDeletion } from '@/data/deletions'
 import { create } from 'zustand'
 import { db } from '@/db'
-import { expandRecurringEvents } from '@/utils/recurrence'
+import { expandRecurringEvents, buildRRule } from '@/utils/recurrence'
 import { getRangeForView } from '@/utils/dates'
 import type { CalendarEvent, EventInstance, RecurringEditScope } from '@/types/event'
-import type { ViewType } from './uiStore'
-import { parseISO, addDays, formatISO } from 'date-fns'
-import { importICS } from '@/utils/ical'
+import { useUIStore, type ViewType } from './uiStore'
+import { fromZonedTime } from 'date-fns-tz'
+import { parseISO, format, addDays } from 'date-fns'
+import { saveICS } from '@/data/import'
 
 interface UndoEntry {
   eventId: string
@@ -37,6 +39,8 @@ interface EventStore {
   clearDragUndo: () => void
 }
 
+let rangeRequest = 0
+
 export const useEventStore = create<EventStore>((set, get) => ({
   events: [],
   instances: [],
@@ -44,46 +48,45 @@ export const useEventStore = create<EventStore>((set, get) => ({
   lastDragUndo: null,
 
   loadRange: async (date, view) => {
+    const request = ++rangeRequest
     set({ loading: true })
-    const { start, end } = getRangeForView(date, view)
+    const { timezone } = useUIStore.getState()
+    const localRange = getRangeForView(date, view)
+    const start = fromZonedTime(localRange.start, timezone)
+    const end = fromZonedTime(localRange.end, timezone)
+    const firstDay = format(localRange.start, 'yyyy-MM-dd')
+    const afterLastDay = format(addDays(localRange.end, 1), 'yyyy-MM-dd')
+    const overlaps = (event: CalendarEvent) => event.allDay
+      ? event.start.slice(0, 10) < afterLastDay && event.end.slice(0, 10) > firstDay
+      : parseISO(event.start) <= end && parseISO(event.end) > start
+    try {
+      const [regular, masters, exceptionRecords] = await Promise.all([
+        db.events.filter(event => !event.recurringEventId && !event.recurrence && overlaps(event)).toArray(),
+        db.events.filter(event => !!event.recurrence && !event.recurringEventId).toArray(),
+        db.events.filter(event => !!event.recurringEventId && !!event.isException && overlaps(event)).toArray(),
+      ])
+      const recurringInstances = await expandRecurringEvents(masters, start, end, timezone)
 
-    const [regular, masters, exceptionRecords] = await Promise.all([
-      db.events
-        .where('start')
-        .between(start.toISOString(), end.toISOString(), true, true)
-        .filter(e => !e.recurringEventId && !e.recurrence)
-        .toArray(),
-      db.events
-        .filter(e => !!e.recurrence && !e.recurringEventId)
-        .toArray(),
-      // Exception records need to be in events[] so update() can find them
-      db.events
-        .where('start')
-        .between(start.toISOString(), end.toISOString(), true, true)
-        .filter(e => !!e.recurringEventId && !!e.isException)
-        .toArray(),
-    ])
+      const regularInstances: EventInstance[] = regular.map(e => ({
+        event: e,
+        instanceStart: e.start,
+        instanceEnd: e.end,
+        isRecurring: false,
+      }))
 
-    const recurringInstances = await expandRecurringEvents(masters, start, end)
-
-    const regularInstances: EventInstance[] = regular.map(e => ({
-      event: e,
-      instanceStart: e.start,
-      instanceEnd: e.end,
-      isRecurring: false,
-    }))
-
-    set({
-      events: [...regular, ...masters, ...exceptionRecords],
-      instances: [...regularInstances, ...recurringInstances],
-      loading: false,
-    })
+      if (request !== rangeRequest) return
+      set({
+        events: [...regular, ...masters, ...exceptionRecords],
+        instances: [...regularInstances, ...recurringInstances],
+        loading: false,
+      })
+    } finally { if (request === rangeRequest) set({ loading: false }) }
   },
 
   create: async (data) => {
     const now = new Date().toISOString()
     const id = crypto.randomUUID()
-    const event: CalendarEvent = { ...data, id, createdAt: now, updatedAt: now }
+    const event: CalendarEvent = { timezone: data.allDay ? undefined : useUIStore.getState().timezone, ...data, id, createdAt: now, updatedAt: now }
     await db.events.add(event)
     set(s => ({
       events: [...s.events, event],
@@ -124,10 +127,12 @@ export const useEventStore = create<EventStore>((set, get) => ({
       // Исключение - это материализованный единичный экземпляр, поэтому оно
       // НЕ должно нести recurrence (иначе повторное редактирование породит
       // вложенное исключение с неправильным recurringEventId).
-      const exId = crypto.randomUUID()
+      const existing = await db.events.where('recurringEventId').equals(id).filter(e => e.exceptionDate === instanceDate).first()
+      const exId = existing?.id ?? crypto.randomUUID()
       const duration = parseISO(original.end).getTime() - parseISO(original.start).getTime()
       const newStart = data.start ?? instanceDate
-      const newEnd = data.end ?? new Date(parseISO(newStart).getTime() + duration).toISOString()
+      const endDate = new Date(parseISO(newStart).getTime() + duration)
+      const newEnd = data.end ?? (original.allDay ? format(endDate, 'yyyy-MM-dd') : endDate.toISOString())
       const exception: CalendarEvent = {
         ...original,
         ...data,
@@ -141,9 +146,9 @@ export const useEventStore = create<EventStore>((set, get) => ({
         createdAt: now,
         updatedAt: now,
       }
-      await db.events.add(exception)
+      await db.events.put(exception)
       set(s => ({
-        events: [...s.events, exception],
+        events: [...s.events.filter(e => e.id !== exId), exception],
         // отражаем правку сразу: заменяем экземпляр в instances
         instances: s.instances.map(i =>
           i.event.id === id && i.instanceStart === instanceDate
@@ -155,41 +160,48 @@ export const useEventStore = create<EventStore>((set, get) => ({
     }
 
     if (scope === 'thisAndFollowing' && instanceDate) {
-      // обрезаем оригинал до предыдущего дня
-      const prevDay = addDays(parseISO(instanceDate), -1)
-      await db.events.update(id, {
-        recurrence: { ...original.recurrence!, until: formatISO(prevDay, { representation: 'date' }) },
-        updatedAt: now,
-      })
-      // создаём новый мастер начиная с instanceDate
+      const cutoff = new Date(parseISO(instanceDate).getTime() - 1)
+      const elapsed = original.recurrence.count
+        ? buildRRule(original, original.recurrence).between(parseISO(original.start), cutoff, true).length
+        : 0
       const newId = crypto.randomUUID()
+      const newStart = data.start ?? instanceDate
+      const endDate = new Date(parseISO(newStart).getTime() + parseISO(original.end).getTime() - parseISO(original.start).getTime())
       const newEvent: CalendarEvent = {
-        ...original,
-        ...data,
-        id: newId,
-        start: data.start ?? instanceDate,
-        createdAt: now,
-        updatedAt: now,
+        ...original, ...data, id: newId, uid: crypto.randomUUID(),
+        recurrence: data.recurrence ?? { ...original.recurrence, count: original.recurrence.count ? Math.max(1, original.recurrence.count - elapsed) : undefined },
+        start: newStart,
+        end: data.end ?? (original.allDay ? format(endDate, 'yyyy-MM-dd') : endDate.toISOString()),
+        createdAt: now, updatedAt: now,
+        recurringEventId: undefined, exceptionDate: undefined, isException: undefined,
       }
-      delete (newEvent as Partial<CalendarEvent>).recurringEventId
-      delete (newEvent as Partial<CalendarEvent>).exceptionDate
-      delete (newEvent as Partial<CalendarEvent>).isException
-      await db.events.add(newEvent)
+      await db.transaction('rw', [db.events, db.deletedInstances], async () => {
+        await db.events.where('recurringEventId').equals(id).filter(event => !!event.exceptionDate && event.exceptionDate >= instanceDate).modify({ recurringEventId: newId, updatedAt: now })
+        await db.deletedInstances.where('eventId').equals(id).filter(deletion => deletion.date >= instanceDate).modify({ eventId: newId })
+        await db.events.update(id, { recurrence: { ...original.recurrence!, until: cutoff.toISOString() }, updatedAt: now })
+        await db.events.add(newEvent)
+      })
     }
   },
 
   remove: async (id, scope = 'all', instanceDate) => {
-    const { trackDeletion } = await import('@/sync/engine')
-    const original = get().events.find(e => e.id === id)
+    const original = get().events.find(e => e.id === id) ?? await db.events.get(id)
     if (!original) return
 
     if (!original.recurrence || scope === 'all') {
-      await db.transaction('rw', [db.events, db.deletedInstances], async () => {
+      await db.transaction('rw', [db.events, db.deletedInstances, db.syncQueue], async () => {
+        const children = await db.events.where('recurringEventId').equals(id).toArray()
+        const deletions = await db.deletedInstances.where('eventId').equals(id).toArray()
+        for (const child of children) await trackDeletion('event', child.id)
+        for (const deletion of deletions) await trackDeletion('deletedInstance', deletion.id)
+        await trackDeletion('event', id)
+        if (original.recurringEventId && original.exceptionDate) {
+          await db.deletedInstances.add({ id: crypto.randomUUID(), eventId: original.recurringEventId, date: original.exceptionDate, createdAt: new Date().toISOString() })
+        }
         await db.events.delete(id)
         await db.events.where('recurringEventId').equals(id).delete()
         await db.deletedInstances.where('eventId').equals(id).delete()
       })
-      await trackDeletion('event', id)
       set(s => ({
         events: s.events.filter(e => e.id !== id && e.recurringEventId !== id),
         instances: s.instances.filter(i => i.event.id !== id),
@@ -214,46 +226,23 @@ export const useEventStore = create<EventStore>((set, get) => ({
 
     if (scope === 'thisAndFollowing' && instanceDate) {
       const now = new Date().toISOString()
-      const prevDay = addDays(parseISO(instanceDate), -1)
-      await db.events.update(id, {
-        recurrence: { ...original.recurrence!, until: formatISO(prevDay, { representation: 'date' }) },
-        updatedAt: now,
+      const cutoff = new Date(parseISO(instanceDate).getTime() - 1)
+      await db.transaction('rw', [db.events, db.deletedInstances, db.syncQueue], async () => {
+        for (const exception of await db.events.where('recurringEventId').equals(id).filter(event => !!event.exceptionDate && event.exceptionDate >= instanceDate).toArray()) {
+          await trackDeletion('event', exception.id)
+          await db.events.delete(exception.id)
+        }
+        for (const deletion of await db.deletedInstances.where('eventId').equals(id).filter(deletion => deletion.date >= instanceDate).toArray()) {
+          await trackDeletion('deletedInstance', deletion.id)
+          await db.deletedInstances.delete(deletion.id)
+        }
+        await db.events.update(id, { recurrence: { ...original.recurrence!, until: cutoff.toISOString() }, updatedAt: now })
       })
     }
   },
 
   importFromICS: async (icsString, calendarId) => {
-    const parsed = importICS(icsString)
-    const now = new Date().toISOString()
-
-    // De-duplicate by UID within this calendar: update existing events,
-    // insert new ones. Avoids duplicate copies when re-importing the same file.
-    const existing = await db.events.where('calendarId').equals(calendarId).toArray()
-    const byUid = new Map(existing.filter(e => e.uid).map(e => [e.uid!, e]))
-
-    const toAdd: CalendarEvent[] = []
-    const toUpdate: CalendarEvent[] = []
-
-    for (const e of parsed) {
-      const match = e.uid ? byUid.get(e.uid) : undefined
-      if (match) {
-        toUpdate.push({ ...match, ...e, id: match.id, calendarId, updatedAt: now })
-      } else {
-        toAdd.push({ ...e, id: crypto.randomUUID(), calendarId, createdAt: now, updatedAt: now })
-      }
-    }
-
-    await db.transaction('rw', db.events, async () => {
-      if (toAdd.length) await db.events.bulkAdd(toAdd)
-      for (const ev of toUpdate) await db.events.put(ev)
-    })
-    set(s => {
-      const updatedIds = new Set(toUpdate.map(e => e.id))
-      return {
-        events: [...s.events.filter(e => !updatedIds.has(e.id)), ...toUpdate, ...toAdd],
-      }
-    })
-    return toAdd.length + toUpdate.length
+    return saveICS(icsString, calendarId)
   },
 
   search: async (query) => {

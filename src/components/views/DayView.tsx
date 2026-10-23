@@ -1,3 +1,5 @@
+import { reportError } from '@/utils/errors'
+import { useTranslation } from 'react-i18next'
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import { parseISO, format, isToday, differenceInMinutes, startOfDay, addMinutes } from 'date-fns'
 import {
@@ -10,7 +12,8 @@ import { useEventStore } from '@/store/eventStore'
 import { useCalendarStore } from '@/store/calendarStore'
 import { getEventHex } from '@/utils/colors'
 import { useDateLocale } from '@/i18n/useDateLocale'
-import { toLocalTime, getTzAbbrev } from '@/utils/timezone'
+import { toLocalTime, getTzAbbrev, dayKeyInTz, dayAtMinute } from '@/utils/timezone'
+import { instancesByDay as groupInstances, segmentMinutes } from '@/utils/intervals'
 import { showToast } from '@/components/ui/Toast'
 import type { CalendarEvent, EventInstance, RecurringEditScope } from '@/types/event'
 
@@ -22,7 +25,7 @@ const SNAP_MIN = 15
 const snapMin = (m: number) => Math.round(m / SNAP_MIN) * SNAP_MIN
 const pxToMin = (px: number) => px / PX_PER_MIN
 const minToPx = (m: number) => m * PX_PER_MIN
-const clampStart = (s: number, d: number) => Math.max(0, Math.min(24 * 60 - d, s))
+const clampStart = (s: number, d: number) => Math.max(0, Math.min(24 * 60 - Math.min(d, 60), s))
 
 function eventStartMin(instanceStart: string, timezone: string) {
   const d = toLocalTime(instanceStart, timezone)
@@ -37,11 +40,11 @@ function layoutEvents(instances: EventInstance[]) {
   const result: Array<{ inst: EventInstance; col: number; cols: number }> = []
   const groups: EventInstance[][] = []
   for (const inst of sorted) {
-    const s = parseISO(inst.instanceStart).getTime()
-    const e = parseISO(inst.instanceEnd).getTime()
+    const s = parseISO(inst.segmentStart || inst.instanceStart).getTime()
+    const e = parseISO(inst.segmentEnd || inst.instanceEnd).getTime()
     let placed = false
     for (const g of groups) {
-      if (g.some(x => s < parseISO(x.instanceEnd).getTime() && e > parseISO(x.instanceStart).getTime())) {
+      if (g.some(x => s < parseISO(x.segmentEnd || x.instanceEnd).getTime() && e > parseISO(x.segmentStart || x.instanceStart).getTime())) {
         g.push(inst); placed = true; break
       }
     }
@@ -79,16 +82,19 @@ function DraggableEventBlock({ inst, col, cols, isDragSource, onEventClick }: {
   const { calendars } = useCalendarStore()
   const hex = getEventHex(inst.event.color ?? calendars.find(c => c.id === inst.event.calendarId)?.color)
   const { timezone } = useUIStore()
-  const top = minToPx(eventStartMin(inst.instanceStart, timezone))
-  const height = minToPx(eventDurationMin(inst.instanceStart, inst.instanceEnd))
+  const segment = segmentMinutes(inst, timezone)
+  const top = minToPx(segment.startMin)
+  const height = minToPx(segment.durationMin)
 
   const { attributes, listeners, setNodeRef } = useDraggable({
-    id: `move-${inst.event.id}-${inst.instanceStart}`,
-    data: { type: 'move', inst, dayKey: format(parseISO(inst.instanceStart), 'yyyy-MM-dd') },
+    id: `move-${inst.event.id}-${inst.instanceStart}-${inst.segmentDay || ''}`,
+    disabled: !!inst.segmentStart && inst.segmentStart !== inst.instanceStart,
+    data: { type: 'move', inst, dayKey: inst.segmentDay || dayKeyInTz(inst.instanceStart, timezone) },
   })
   const { attributes: ra, listeners: rl, setNodeRef: setResizeRef } = useDraggable({
-    id: `resize-${inst.event.id}-${inst.instanceStart}`,
-    data: { type: 'resize', inst, dayKey: format(parseISO(inst.instanceStart), 'yyyy-MM-dd') },
+    id: `resize-${inst.event.id}-${inst.instanceStart}-${inst.segmentDay || ''}`,
+    disabled: (!!inst.segmentStart && inst.segmentStart !== inst.instanceStart) || (!!inst.segmentEnd && inst.segmentEnd !== inst.instanceEnd),
+    data: { type: 'resize', inst, dayKey: inst.segmentDay || dayKeyInTz(inst.instanceStart, timezone) },
   })
 
   return (
@@ -112,7 +118,7 @@ function DraggableEventBlock({ inst, col, cols, isDragSource, onEventClick }: {
       <div className="text-sm font-medium leading-tight truncate" style={{ color: hex }}>{inst.event.title}</div>
       {height > 36 && (
         <div className="text-xs opacity-70 leading-tight" style={{ color: hex }}>
-          {format(parseISO(inst.instanceStart), 'h:mma')} - {format(parseISO(inst.instanceEnd), 'h:mma')}
+          {format(toLocalTime(inst.instanceStart, timezone), 'h:mma')} - {format(toLocalTime(inst.instanceEnd, timezone), 'h:mma')}
         </div>
       )}
       {height > 56 && inst.event.location && (
@@ -134,6 +140,7 @@ function DraggableEventBlock({ inst, col, cols, isDragSource, onEventClick }: {
 }
 
 export function DayView() {
+  const { t } = useTranslation()
   const { selectedDate, openNewEvent, openPopover, timezone } = useUIStore()
   const locale = useDateLocale()
   const { instances, update, loadRange, saveDragUndo, undoLastDrag, clearDragUndo } = useEventStore()
@@ -154,14 +161,9 @@ export function DayView() {
 
   const { timed, allDay } = useMemo(() => {
     const key = format(day, 'yyyy-MM-dd')
-    const timed: EventInstance[] = [], allDay: EventInstance[] = []
-    for (const inst of instances) {
-      if (!visibleIds.has(inst.event.calendarId)) continue
-      if (format(parseISO(inst.instanceStart), 'yyyy-MM-dd') !== key) continue
-      if (inst.event.allDay) allDay.push(inst); else timed.push(inst)
-    }
-    return { timed, allDay }
-  }, [instances, visibleIds, selectedDate])
+    const rows = groupInstances(instances.filter(instance => visibleIds.has(instance.event.calendarId)), timezone, key, key).get(key) || []
+    return { timed: rows.filter(instance => !instance.event.allDay), allDay: rows.filter(instance => instance.event.allDay) }
+  }, [instances, visibleIds, selectedDate, timezone])
 
   const laid = layoutEvents(timed)
 
@@ -197,15 +199,15 @@ export function DayView() {
     if (!inst) { setDrag(null); setPreview(null); return }
     const final = computePreview(drag, e.delta.y)
     if (final) {
-      const newStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(final.startMin / 60), final.startMin % 60, 0, 0)
+      const newStart = dayAtMinute(selectedDate, final.startMin, timezone)
       const newEnd = addMinutes(newStart, final.durationMin)
       const scope: RecurringEditScope = inst.isRecurring ? 'this' : 'all'
-      saveDragUndo({ eventId: inst.event.id, previousStart: inst.event.start, previousEnd: inst.event.end, scope, instanceStart: inst.isRecurring ? drag.instanceStart : undefined })
+      saveDragUndo({ eventId: inst.event.id, previousStart: inst.instanceStart, previousEnd: inst.instanceEnd, scope, instanceStart: inst.isRecurring ? drag.instanceStart : undefined })
       await update(inst.event.id, { start: newStart.toISOString(), end: newEnd.toISOString() } as Partial<Omit<CalendarEvent, 'id' | 'createdAt'>>, scope, inst.isRecurring ? drag.instanceStart : undefined)
       await loadRange(parseISO(selectedDate), view)
       showToast({
-        message: 'Event moved',
-        actionLabel: 'Undo',
+        message: t('messages.eventMoved'),
+        actionLabel: t('actions.undo'),
         onAction: async () => { await undoLastDrag(); await loadRange(parseISO(selectedDate), view) },
         duration: 6000,
       })
@@ -215,7 +217,7 @@ export function DayView() {
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={event => { void handleDragEnd(event).catch(reportError) }}>
       <div className="flex flex-col h-full overflow-hidden">
         {/* header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] shrink-0 flex-wrap">
@@ -249,8 +251,8 @@ export function DayView() {
             <div className="flex-1 relative border-l border-[var(--border)]">
               {HOURS.map(h => (
                 <div key={h} onClick={() => {
-                  const start = new Date(day); start.setHours(h, 0, 0, 0)
-                  const end = new Date(start); end.setHours(h + 1, 0, 0, 0)
+                  const start = dayAtMinute(selectedDate, h * 60, timezone)
+                  const end = dayAtMinute(selectedDate, (h + 1) * 60, timezone)
                   openNewEvent({ start: start.toISOString(), end: end.toISOString() })
                 }} className="absolute left-0 right-0 border-t border-[var(--border)] cursor-pointer hover:bg-[var(--surface-secondary)/50]" style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }} />
               ))}

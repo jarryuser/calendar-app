@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import * as RadixDialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -13,11 +14,13 @@ interface DialogProps {
 }
 
 export function Dialog({ open, onOpenChange, title, description, children, className }: DialogProps) {
+  const { t } = useTranslation()
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-[65] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <RadixDialog.Content
+          aria-describedby={undefined}
           className={clsx(
             'fixed left-1/2 top-1/2 z-[70] -translate-x-1/2 -translate-y-1/2',
             'w-full max-h-[90vh] overflow-y-auto',
@@ -31,7 +34,7 @@ export function Dialog({ open, onOpenChange, title, description, children, class
           )}
         >
             {!title && (
-            <RadixDialog.Title className="sr-only">Dialog</RadixDialog.Title>
+            <RadixDialog.Title className="sr-only">{t('common.dialog')}</RadixDialog.Title>
           )}
           {(title || description) && (
             <div className="flex items-start justify-between p-4 pb-0">
@@ -47,7 +50,7 @@ export function Dialog({ open, onOpenChange, title, description, children, class
                   </RadixDialog.Description>
                 )}
               </div>
-              <RadixDialog.Close className="rounded-md p-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-secondary)] transition-colors">
+              <RadixDialog.Close aria-label={t('actions.close')} className="rounded-md p-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-secondary)] transition-colors">
                 <X size={16} />
               </RadixDialog.Close>
             </div>

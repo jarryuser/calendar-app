@@ -64,7 +64,11 @@
     "ends": "Ends",
     "endsNever": "Never",
     "endsAfter": "After N times",
-    "endsOn": "On date"
+    "endsOn": "On date",
+    "summary": "Every {{interval}} {{unit}}",
+    "onDays": "on {{days}}",
+    "countText": "{{count}} occurrences",
+    "untilText": "until {{date}}"
   },
   "views": {
     "allDay": "all day",
@@ -94,5 +98,76 @@
     "dueDate": "Due date",
     "empty": "No tasks",
     "completed": "Completed"
+  },
+  "actions": {
+    "settings": "Settings",
+    "retry": "Retry",
+    "loading": "Loading",
+    "backup": "Download backup",
+    "restore": "Restore backup",
+    "confirmRestore": "Replace local data",
+    "notifications": "Enable notifications",
+    "timezone": "Timezone",
+    "language": "Language",
+    "close": "Close",
+    "menu": "Menu",
+    "previous": "Previous period",
+    "next": "Next period",
+    "sync": "Sync",
+    "syncing": "Syncing…",
+    "import": "Import",
+    "export": "Export",
+    "weekNumbers": "Week numbers",
+    "theme": "Theme",
+    "design": "Design",
+    "refresh": "Refresh",
+    "subscribe": "Subscribe",
+    "subscribing": "Subscribing…",
+    "subscribeUrl": "Calendar URL",
+    "calendarName": "Calendar name",
+    "complete": "Mark complete",
+    "incomplete": "Mark incomplete",
+    "undo": "Undo",
+    "this": "This event",
+    "thisAndFollowing": "This and following",
+    "all": "All events",
+    "more": "More actions",
+    "visibility": "Toggle calendar visibility",
+    "start": "Start",
+    "end": "End"
+  },
+  "auth": {
+    "title": "Calendar Sync",
+    "description": "Connect to your sync server",
+    "server": "Server URL",
+    "username": "Username",
+    "password": "Password",
+    "connect": "Connect",
+    "connecting": "Connecting…",
+    "logout": "Sign out",
+    "signedIn": "Signed in as {{username}}",
+    "failed": "Sign-in failed; check credentials and server"
+  },
+  "messages": {
+    "storageFailed": "Could not open local storage; retry or check browser permissions",
+    "operationFailed": "Operation failed",
+    "restoreConfirm": "This replaces local calendars, events and tasks and syncs the changes; download a backup first",
+    "invalidInterval": "Choose a calendar and an end time after the start",
+    "eventMoved": "Event moved",
+    "importedRule": "Imported recurrence rule is preserved; remove it to choose a simpler rule"
+  },
+  "notifications": {
+    "default": "Notifications are off until you enable them",
+    "granted": "Notifications enabled while the app is running",
+    "denied": "Allow notifications in browser settings to enable reminders",
+    "unsupported": "Notifications are unavailable in this browser",
+    "starting": "Starting now",
+    "inMinutes": "In {{count}} min"
+  },
+  "conflicts": {
+    "title": "Sync conflicts: {{count}}",
+    "details": "Compare saved versions",
+    "local": "Use my version",
+    "remote": "Keep server version"
   }
 }

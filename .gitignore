@@ -8,3 +8,8 @@ src-tauri/target/
 
 # Cloudflare
 .wrangler/
+
+.dev.vars
+backups/
+playwright-report/
+test-results/

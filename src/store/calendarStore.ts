@@ -1,20 +1,16 @@
+import { trackDeletion } from '@/data/deletions'
 import { create } from 'zustand'
 import { db } from '@/db'
 import type { Calendar, CalendarColor } from '@/types/calendar'
-import { importICS } from '@/utils/ical'
+import { saveICS } from '@/data/import'
+import { fetchWithRetry, validateRemoteUrl } from '@/utils/network'
 
 // Fetch an .ics URL and replace the calendar's events with the parsed result.
 async function fetchAndImport(url: string, calendarId: string): Promise<void> {
-  const res = await fetch(url)
+  validateRemoteUrl(url, true)
+  const res = await fetchWithRetry(url)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const icsText = await res.text()
-  const parsed = importICS(icsText)
-  const now = new Date().toISOString()
-  const events = parsed.map(e => ({ ...e, id: crypto.randomUUID(), calendarId, createdAt: now, updatedAt: now }))
-  await db.transaction('rw', db.events, async () => {
-    await db.events.where('calendarId').equals(calendarId).delete()
-    await db.events.bulkAdd(events)
-  })
+  await saveICS(await res.text(), calendarId, true)
 }
 
 interface CalendarStore {
@@ -122,16 +118,21 @@ export const useCalendarStore = create<CalendarStore>((set, get) => ({
   },
 
   remove: async (id) => {
-    const { trackDeletion } = await import('@/sync/engine')
-    const eventsToDelete = await db.events.where('calendarId').equals(id).toArray()
-    await db.transaction('rw', [db.calendars, db.events], async () => {
+    await db.transaction('rw', [db.calendars, db.events, db.tasks, db.deletedInstances, db.syncQueue], async () => {
+      const events = await db.events.where('calendarId').equals(id).toArray()
+      const tasks = await db.tasks.where('calendarId').equals(id).toArray()
+      for (const event of events) {
+        const deletions = await db.deletedInstances.where('eventId').equals(event.id).toArray()
+        for (const deletion of deletions) await trackDeletion('deletedInstance', deletion.id)
+        await db.deletedInstances.where('eventId').equals(event.id).delete()
+        await trackDeletion('event', event.id)
+      }
+      for (const task of tasks) await trackDeletion('task', task.id)
+      await trackDeletion('calendar', id)
       await db.calendars.delete(id)
       await db.events.where('calendarId').equals(id).delete()
+      await db.tasks.where('calendarId').equals(id).delete()
     })
-    await trackDeletion('calendar', id)
-    for (const evt of eventsToDelete) {
-      await trackDeletion('event', evt.id)
-    }
     set(s => ({ calendars: s.calendars.filter(c => c.id !== id) }))
   },
 

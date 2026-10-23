@@ -6,7 +6,8 @@
     {
       "binding": "DB",
       "database_name": "calendar-db",
-      "database_id": "f72d358f-fc77-4d9a-b8ef-e69393c00aa4"
+      "database_id": "f72d358f-fc77-4d9a-b8ef-e69393c00aa4",
+      "migrations_dir": "api/migrations"
     }
   ]
 }

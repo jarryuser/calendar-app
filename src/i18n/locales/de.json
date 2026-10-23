@@ -64,7 +64,11 @@
     "ends": "Endet",
     "endsNever": "Nie",
     "endsAfter": "Nach N Wiederholungen",
-    "endsOn": "An einem Datum"
+    "endsOn": "An einem Datum",
+    "summary": "Alle {{interval}} {{unit}}",
+    "onDays": "an {{days}}",
+    "countText": "{{count}} Wiederholungen",
+    "untilText": "bis {{date}}"
   },
   "views": {
     "allDay": "ganztägig",
@@ -94,5 +98,76 @@
     "dueDate": "Fälligkeitsdatum",
     "empty": "Keine Aufgaben",
     "completed": "Erledigt"
+  },
+  "actions": {
+    "settings": "Einstellungen",
+    "retry": "Erneut versuchen",
+    "loading": "Laden",
+    "backup": "Sicherung herunterladen",
+    "restore": "Sicherung wiederherstellen",
+    "confirmRestore": "Lokale Daten ersetzen",
+    "notifications": "Mitteilungen aktivieren",
+    "timezone": "Zeitzone",
+    "language": "Sprache",
+    "close": "Schließen",
+    "menu": "Menü",
+    "previous": "Vorheriger Zeitraum",
+    "next": "Nächster Zeitraum",
+    "sync": "Synchronisieren",
+    "syncing": "Synchronisierung…",
+    "import": "Importieren",
+    "export": "Exportieren",
+    "weekNumbers": "Wochennummern",
+    "theme": "Farbschema",
+    "design": "Design",
+    "refresh": "Aktualisieren",
+    "subscribe": "Abonnieren",
+    "subscribing": "Abonnement wird erstellt…",
+    "subscribeUrl": "Kalenderadresse",
+    "calendarName": "Kalendername",
+    "complete": "Als erledigt markieren",
+    "incomplete": "Als unerledigt markieren",
+    "undo": "Rückgängig",
+    "this": "Dieses Ereignis",
+    "thisAndFollowing": "Dieses und folgende",
+    "all": "Alle Ereignisse",
+    "more": "Weitere Aktionen",
+    "visibility": "Kalendersichtbarkeit ändern",
+    "start": "Beginn",
+    "end": "Ende"
+  },
+  "auth": {
+    "title": "Kalendersynchronisierung",
+    "description": "Mit Ihrem Server verbinden",
+    "server": "Serveradresse",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "connect": "Verbinden",
+    "connecting": "Verbindung wird hergestellt…",
+    "logout": "Abmelden",
+    "signedIn": "Angemeldet als {{username}}",
+    "failed": "Anmeldung fehlgeschlagen; Zugangsdaten und Server prüfen"
+  },
+  "messages": {
+    "storageFailed": "Lokaler Speicher konnte nicht geöffnet werden; Browserberechtigungen prüfen",
+    "operationFailed": "Aktion fehlgeschlagen",
+    "restoreConfirm": "Lokale Kalender, Ereignisse und Aufgaben werden ersetzt und synchronisiert; zuerst eine Sicherung herunterladen",
+    "invalidInterval": "Kalender und ein Ende nach dem Beginn auswählen",
+    "eventMoved": "Ereignis verschoben",
+    "importedRule": "Importierte Wiederholung bleibt erhalten; zum Vereinfachen entfernen"
+  },
+  "notifications": {
+    "default": "Mitteilungen sind noch deaktiviert",
+    "granted": "Mitteilungen bei geöffneter App aktiviert",
+    "denied": "Mitteilungen in den Browsereinstellungen erlauben",
+    "unsupported": "Dieser Browser unterstützt keine Mitteilungen",
+    "starting": "Beginnt jetzt",
+    "inMinutes": "In {{count}} Min."
+  },
+  "conflicts": {
+    "title": "Synchronisierungskonflikte: {{count}}",
+    "details": "Gespeicherte Versionen vergleichen",
+    "local": "Meine Version verwenden",
+    "remote": "Serverversion behalten"
   }
 }

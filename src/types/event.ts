@@ -13,6 +13,7 @@ export interface RecurrenceRule {
   byMonthDay?: number[]
   count?: number
   until?: string
+  raw?: string
 }
 
 export interface Reminder {
@@ -32,6 +33,8 @@ export interface CalendarEvent {
   color?: EventColor
   calendarId: string
   reminders: Reminder[]
+  timezone?: string
+  ical?: { component: unknown[]; timezones: unknown[][]; start: string; end: string; recurrence?: string }
   recurrence?: RecurrenceRule
   recurringEventId?: string
   exceptionDate?: string
@@ -45,6 +48,9 @@ export interface EventInstance {
   instanceStart: string
   instanceEnd: string
   isRecurring: boolean
+  segmentStart?: string
+  segmentEnd?: string
+  segmentDay?: string
 }
 
 export type RecurringEditScope = 'this' | 'thisAndFollowing' | 'all'

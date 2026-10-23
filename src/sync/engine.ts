@@ -1,163 +1,165 @@
-import { db } from '@/db'
+import { db, type SyncConflict } from '@/db'
 import * as client from './client'
+import { entities, type Entity, type Mutation, type RecordData, type RemoteRecord, type SyncResponse } from '../../shared/sync'
+export { trackDeletion } from '@/data/deletions'
 
-let syncInProgress = false
-let lastSyncError: string | null = null
-let syncListeners: Array<(state: SyncState) => void> = []
-let completeListeners: Array<() => void> = []
-
-export interface SyncState {
-  syncing: boolean
-  lastSyncAt: string | null
-  lastSyncError: string | null
-  authenticated: boolean
+const entityTypes = { events: 'event', calendars: 'calendar', tasks: 'task', deletedInstances: 'deletedInstance' } as const
+export interface SyncState { syncing: boolean; lastSyncAt: string | null; lastSyncError: string | null; authenticated: boolean }
+let state: SyncState = { syncing: false, lastSyncAt: null, lastSyncError: null, authenticated: client.hasAuthToken() }
+const listeners = new Set<(state: SyncState) => void>()
+const completeListeners = new Set<() => void>()
+function notify() {
+  state = { ...state, authenticated: client.hasAuthToken() }
+  listeners.forEach(listener => listener(state))
 }
-
-function notifyListeners(state: SyncState) {
-  syncListeners.forEach(fn => fn(state))
+export function subscribe(listener: (state: SyncState) => void) { listeners.add(listener); listener({ ...state, authenticated: client.hasAuthToken() }); return () => { listeners.delete(listener) } }
+export function onSyncComplete(listener: () => void) { completeListeners.add(listener); return () => { completeListeners.delete(listener) } }
+export function fingerprint(value: unknown): string {
+  return JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item)
+    ? Object.fromEntries(Object.keys(item).sort().filter(key => item[key] !== null && item[key] !== undefined).map(key => [key, item[key]])) : item) || ''
 }
+const keyFor = (entity: Entity, id: string) => `${entity}:${id}`
 
-function getState(): SyncState {
-  return {
-    syncing: syncInProgress,
-    lastSyncAt: null,
-    lastSyncError,
-    authenticated: client.hasAuthToken(),
-  }
-}
-
-export function subscribe(listener: (state: SyncState) => void): () => void {
-  syncListeners.push(listener)
-  listener(getState())
-  return () => {
-    syncListeners = syncListeners.filter(fn => fn !== listener)
-  }
-}
-
-export function onSyncComplete(cb: () => void): () => void {
-  completeListeners.push(cb)
-  return () => {
-    completeListeners = completeListeners.filter(fn => fn !== cb)
-  }
-}
-
-export async function collectChanges(lastSyncAt: string | null) {
-  const since = lastSyncAt || '1970-01-01T00:00:00.000Z'
-
-  const [events, calendars, tasks, deletedInstances, queue] = await Promise.all([
-    db.events.filter(e => e.updatedAt > since).toArray(),
-    db.calendars.toArray(), // push all calendars so event calendarIds resolve on other devices
-    db.tasks.filter(t => t.updatedAt > since).toArray(),
-    db.deletedInstances.filter(d => d.createdAt > since).toArray(),
-    db.syncQueue.toArray(),
-  ])
-
-  const result = {
-    events: events as unknown as Record<string, unknown>[],
-    eventDeletions: queue.filter(q => q.entityType === 'event').map(q => q.entityId),
-    calendars: calendars as unknown as Record<string, unknown>[],
-    calendarDeletions: queue.filter(q => q.entityType === 'calendar').map(q => q.entityId),
-    tasks: tasks as unknown as Record<string, unknown>[],
-    taskDeletions: queue.filter(q => q.entityType === 'task').map(q => q.entityId),
-    deletedInstances: deletedInstances as unknown as Record<string, unknown>[],
-    deletedInstanceDeletions: queue.filter(q => q.entityType === 'deletedInstance').map(q => q.entityId),
-  }
-  console.log('[sync] changes collected, events to push:', events.length, 'deletions:', result.eventDeletions.length)
-  return result
-}
-
-function stripItemDeleted<T extends Record<string, unknown>>(item: T): T {
-  const { deleted_at, ...rest } = item
-  return rest as T
-}
-
-export async function applyPull(result: client.SyncPullResult) {
-  console.log('[sync] applying pull:', 'events:', result.events.upserted.length, result.events.deleted.length)
-  await db.transaction('rw', [db.events, db.calendars, db.tasks, db.deletedInstances], async () => {
-    for (const evt of result.events.upserted) {
-      await db.events.put(stripItemDeleted(evt) as never)
+export async function collectChanges() {
+  const database = db
+  return database.transaction('r', [...entities.map(key => database[key]), database.syncVersions, database.syncQueue, database.syncMeta], async () => {
+    const versions = new Map((await database.syncVersions.toArray()).map(record => [record.key, record]))
+    const queue = await database.syncQueue.toArray()
+    const snapshots = new Map<string, RecordData>()
+    const mutations: Mutation[] = []
+    for (const entity of entities) {
+      for (const data of await database[entity].toArray()) {
+        const key = keyFor(entity, data.id)
+        snapshots.set(key, data as unknown as RecordData)
+        const version = versions.get(key)
+        if (fingerprint(data) !== fingerprint(version?.data)) mutations.push({ entity, id: data.id, data: data as unknown as RecordData, baseRevision: version?.revision || 0, deleted: false, mutationId: crypto.randomUUID() })
+      }
+      for (const item of queue.filter(item => item.entityType === entityTypes[entity])) {
+        const key = keyFor(entity, item.entityId)
+        if (!mutations.some(m => m.entity === entity && m.id === item.entityId)) mutations.push({ entity, id: item.entityId, baseRevision: versions.get(key)?.revision || 0, deleted: true, mutationId: crypto.randomUUID() })
+      }
     }
-    for (const id of result.events.deleted) {
-      await db.events.delete(id)
-    }
-
-    for (const cal of result.calendars.upserted) {
-      await db.calendars.put(stripItemDeleted(cal) as never)
-    }
-    for (const id of result.calendars.deleted) {
-      await db.calendars.delete(id)
-    }
-
-    for (const task of result.tasks.upserted) {
-      await db.tasks.put(stripItemDeleted(task) as never)
-    }
-    for (const id of result.tasks.deleted) {
-      await db.tasks.delete(id)
-    }
-
-    for (const di of result.deletedInstances.upserted) {
-      await db.deletedInstances.put(stripItemDeleted(di) as never)
-    }
-    for (const id of result.deletedInstances.deleted) {
-      await db.deletedInstances.delete(id)
-    }
+    return { database, mutations: mutations.slice(0, 100), snapshots, queue, cursor: Number((await database.syncMeta.get('cursor'))?.value || 0), hasMore: mutations.length > 100 }
   })
 }
 
-export async function clearSyncQueue() {
-  await db.syncQueue.clear()
+export async function applyPull(result: SyncResponse, sent: Awaited<ReturnType<typeof collectChanges>>) {
+  const database = sent.database
+  if (db !== database) throw new Error('Account changed during synchronization')
+  await database.transaction('rw', [...entities.map(key => database[key]), database.syncVersions, database.syncConflicts, database.syncQueue, database.syncMeta], async () => {
+    const conflicts = new Map(result.conflicts.map(conflict => [conflict.mutationId, conflict.remote]))
+    const applied = new Set(result.accepted.map(record => keyFor(record.entity, record.id)))
+    for (const mutation of sent.mutations) {
+      const remote = conflicts.get(mutation.mutationId)
+      if (remote) {
+        const conflict: SyncConflict = { id: mutation.mutationId, entity: mutation.entity, entityId: mutation.id, local: mutation.data || null, remote, createdAt: new Date().toISOString() }
+        await database.syncConflicts.put(conflict)
+        applied.add(keyFor(remote.entity, remote.id))
+      }
+    }
+    const records = [...result.records, ...result.accepted, ...result.conflicts.map(conflict => conflict.remote)]
+    const newest = new Map<string, RemoteRecord>()
+    for (const record of records) {
+      const key = keyFor(record.entity, record.id)
+      if (!newest.has(key) || newest.get(key)!.revision <= record.revision) newest.set(key, record)
+    }
+    const pending = await database.syncQueue.toArray()
+    for (const [key, record] of newest) {
+      const version = await database.syncVersions.get(key)
+      if (version && version.revision > record.revision) continue
+      const current = await database[record.entity].get(record.id) as RecordData | undefined
+      const unchanged = fingerprint(current) === fingerprint(sent.snapshots.get(key))
+      const localDirty = fingerprint(current) !== fingerprint(version?.data)
+      const deletionPending = pending.some(item => item.entityType === entityTypes[record.entity] && item.entityId === record.id)
+      if (!applied.has(key) && (localDirty || deletionPending) && fingerprint(current) !== fingerprint(record.data ?? undefined)) continue
+      if (unchanged && (applied.has(key) || !deletionPending)) {
+        if (record.deleted) await database[record.entity].delete(record.id)
+        else if (record.data) await database[record.entity].put(record.data as never)
+      }
+      await database.syncVersions.put({ key, ...record })
+    }
+    const processed = new Set(sent.mutations.filter(mutation => applied.has(keyFor(mutation.entity, mutation.id))).map(mutation => keyFor(mutation.entity, mutation.id)))
+    await database.syncQueue.bulkDelete(sent.queue.filter(item => {
+      const entity = entities.find(entity => entityTypes[entity] === item.entityType)!
+      return processed.has(keyFor(entity, item.entityId))
+    }).map(item => item.id))
+    await database.syncMeta.put({ key: 'cursor', value: String(result.cursor) })
+    await database.syncMeta.put({ key: 'lastSyncAt', value: result.serverTime })
+  })
 }
 
-export async function syncOnce(): Promise<void> {
-  if (syncInProgress || !client.hasAuthToken()) return
-  syncInProgress = true
-  lastSyncError = null
-  notifyListeners(getState())
+async function withLease(work: () => Promise<void>) {
+  const database = db
+  const owner = crypto.randomUUID()
+  const leaseKey = 'syncLease'
+  const acquire = await database.transaction('rw', database.syncMeta, async () => {
+    const existing = await database.syncMeta.get(leaseKey)
+    if (existing && JSON.parse(existing.value).expiresAt > Date.now()) return false
+    await database.syncMeta.put({ key: leaseKey, value: JSON.stringify({ owner, expiresAt: Date.now() + 90_000 }) })
+    return true
+  })
+  if (!acquire) return
+  const heartbeat = setInterval(() => {
+    void database.transaction('rw', database.syncMeta, async () => {
+      const existing = await database.syncMeta.get(leaseKey)
+      if (existing && JSON.parse(existing.value).owner === owner) await database.syncMeta.put({ key: leaseKey, value: JSON.stringify({ owner, expiresAt: Date.now() + 90_000 }) })
+    }).catch(() => {})
+  }, 20_000)
+  try { await work() }
+  finally {
+    clearInterval(heartbeat)
+    await database.transaction('rw', database.syncMeta, async () => {
+      const existing = await database.syncMeta.get(leaseKey)
+      if (existing && JSON.parse(existing.value).owner === owner) await database.syncMeta.delete(leaseKey)
+    }).catch(() => {})
+  }
+}
 
+let syncing = false
+async function performSync() {
+  const database = db
+  const checkProfile = () => { if (db !== database) throw new Error('Account changed during synchronization') }
+  // Bootstrap remote versions before pushing local records from older clients.
+  if (!await db.syncMeta.get('protocol2')) {
+    let more = true
+    while (more) {
+      const sent = await collectChanges()
+      checkProfile()
+      const result = await client.sync({ protocol: 2, cursor: sent.cursor, mutations: [] })
+      checkProfile()
+      await applyPull(result, { ...sent, mutations: [], queue: [] })
+      more = result.hasMore
+    }
+    await db.syncMeta.put({ key: 'protocol2', value: 'true' })
+  }
+  let more = true
+  while (more && client.hasAuthToken()) {
+    const sent = await collectChanges()
+    checkProfile()
+    const result = await client.sync({ protocol: 2, cursor: sent.cursor, mutations: sent.mutations })
+    checkProfile()
+    await applyPull(result, sent)
+    more = result.hasMore || sent.hasMore
+  }
+}
+export async function syncOnce() {
+  if (syncing || !client.hasAuthToken()) return
+  syncing = true
+  state = { ...state, syncing: true, lastSyncError: null }
+  notify()
   try {
-    const lastSyncAt = await client.getLastSyncAt()
-    const changes = await collectChanges(lastSyncAt)
-    const result = await client.sync(changes)
-
-    await applyPull(result)
-    await clearSyncQueue()
-    await client.setLastSyncAt(result.serverTime)
-
-    syncInProgress = false
-    notifyListeners(getState())
-    console.log('[sync] completed, events pulled:', result.events.upserted.length)
-    completeListeners.forEach(fn => fn())
-  } catch (err) {
-    syncInProgress = false
-    lastSyncError = err instanceof Error ? err.message : 'Sync failed'
-    console.log('[sync] error:', lastSyncError)
-    notifyListeners(getState())
+    if (typeof navigator !== 'undefined' && navigator.locks) {
+      await navigator.locks.request(`calendar-sync:${db.name}`, { ifAvailable: true }, async lock => { if (lock) await performSync() })
+    } else await withLease(performSync)
+    completeListeners.forEach(listener => listener())
+  } catch (error) { state.lastSyncError = error instanceof Error ? error.message : 'Sync failed' }
+  finally {
+    syncing = false
+    state.syncing = false
+    state.lastSyncAt = await client.getLastSyncAt().catch(() => null)
+    notify()
   }
 }
-
-let intervalId: ReturnType<typeof setInterval> | null = null
-
-export function startAutoSync(intervalMs = 300_000) {
-  syncOnce()
-  intervalId = setInterval(syncOnce, intervalMs)
-}
-
-export function stopAutoSync() {
-  if (intervalId) {
-    clearInterval(intervalId)
-    intervalId = null
-  }
-}
-
-export async function trackDeletion(
-  entityType: 'event' | 'calendar' | 'task' | 'deletedInstance',
-  entityId: string,
-) {
-  await db.syncQueue.add({
-    id: crypto.randomUUID(),
-    entityType,
-    entityId,
-    action: 'delete',
-    createdAt: new Date().toISOString(),
-  })
-}
+let interval: ReturnType<typeof setInterval> | undefined
+export function startAutoSync(milliseconds = 300_000) { stopAutoSync(); void syncOnce(); interval = setInterval(() => void syncOnce(), milliseconds) }
+export function stopAutoSync() { clearInterval(interval); interval = undefined }

@@ -1,3 +1,4 @@
+import { handleAction } from '@/utils/errors'
 import { useState, useMemo } from 'react'
 import { format, parseISO, isToday, isPast, startOfDay } from 'date-fns'
 import { Plus, CheckSquare, Square, MoreHorizontal, ChevronDown, ChevronRight } from 'lucide-react'
@@ -12,6 +13,7 @@ import type { Task } from '@/types/task'
 import { clsx } from 'clsx'
 
 function TaskItem({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
+  const { t } = useTranslation()
   const { toggle } = useTaskStore()
   const { calendars } = useCalendarStore()
   const locale = useDateLocale()
@@ -23,7 +25,8 @@ function TaskItem({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
   return (
     <div className="flex items-start gap-2 px-1 py-1 rounded-lg hover:bg-[var(--surface-secondary)] group transition-colors">
       <button
-        onClick={() => toggle(task.id)}
+        aria-label={t(task.completed ? 'actions.incomplete' : 'actions.complete')}
+        onClick={handleAction(() => toggle(task.id))}
         className="mt-0.5 shrink-0 transition-colors"
         style={{ color: task.completed ? hex : 'var(--text-tertiary)' }}
       >
@@ -48,7 +51,7 @@ function TaskItem({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
             overdue ? 'text-red-500' : 'text-[var(--text-tertiary)]'
           )}>
             {isToday(parseISO(task.dueDate))
-              ? 'Today'
+              ? t('header.today')
               : format(parseISO(task.dueDate), 'MMM d', { locale })}
           </div>
         )}
@@ -56,14 +59,15 @@ function TaskItem({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:bg-[var(--surface-tertiary)] transition-all">
+          <button aria-label={t('actions.more')} className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:bg-[var(--surface-tertiary)] transition-all">
             <MoreHorizontal size={12} />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => onEdit(task)}>Edit</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => toggle(task.id)}>
-            {task.completed ? 'Mark incomplete' : 'Mark complete'}
+          <DropdownMenuItem onClick={() => onEdit(task)}>{t('calendarList.edit')}</DropdownMenuItem>
+          <DropdownMenuItem aria-label={t(task.completed ? 'actions.incomplete' : 'actions.complete')}
+        onClick={handleAction(() => toggle(task.id))}>
+            {t(task.completed ? 'actions.incomplete' : 'actions.complete')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -117,6 +121,7 @@ export function TaskList() {
             )}
           </button>
           <button
+            aria-label={t('tasks.add')}
             onClick={openNew}
             className="w-5 h-5 flex items-center justify-center rounded hover:bg-[var(--surface-tertiary)] text-[var(--text-tertiary)] transition-colors"
           >

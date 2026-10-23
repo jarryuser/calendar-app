@@ -2,7 +2,7 @@
 
 # Calendar
 
-**Open-source osobný kalendár s plnou offline podporou - zobrazenia mesiaca, týždňa, dňa, agendy a roka, opakujúce sa udalosti, vstup v prirodzenom jazyku, dve dizajnové témy a natívna desktopová aplikácia. Bez účtov, telemetrie ani servera**
+**Osobný kalendár s miestnym úložiskom, overenou synchronizáciou, úlohami, zálohami a desktopovou aplikáciou**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
@@ -18,7 +18,7 @@
 
 ## Prehľad
 
-Calendar je plne klientská webová aplikácia, ktorá uchováva všetko v IndexedDB prehliadača. Neexistuje žiadny backend, autentifikácia ani sieťové volania po načítaní stránky. Vaše udalosti nikdy neopustia vaše zariadenie, pokiaľ ich sami neexportujete
+Calendar uchováva miestnu kópiu v IndexedDB a po prihlásení ju synchronizuje s Cloudflare Pages Functions a D1. Servery a používatelia majú oddelené databázy; prihlásenie vyžaduje server a relácia platí osem hodín
 
 Rozhranie je inšpirované Google Calendar a Fantastical - navigácia pomocou klávesnice, časová mriežka pre zobrazenia týždeň/deň, analýza prirodzeného jazyka vo vyhľadávacom poli, úprava opakujúcich sa udalostí s výnimkami a drag-and-drop pre preplánování
 
@@ -60,7 +60,6 @@ Hotové binárky sú automaticky zverejňované s každým vydaním cez GitHub A
 | 🎨 | **Dve dizajnové témy** | Editorial (teplý krém + serif) a Fantastical (neutrálny, Apple štýl) |
 | 📱 | **Mobilné rozhranie** | Vysúvací sidebar, dolná navigácia, gestá potiahnutím |
 | 🖥️ | **Natívna desktopová aplikácia** | Tauri v2 - ~10 MB, pracuje offline |
-| 📵 | **100% offline** | IndexedDB je jediné úložisko |
 
 ---
 
@@ -87,23 +86,15 @@ Hotové binárky sú automaticky zverejňované s každým vydaním cez GitHub A
 
 ## Začíname
 
-```bash
-git clone https://github.com/jarryuser/calendar.git
-cd calendar
-npm install
-npm run dev        # → http://localhost:5173
-```
-
-Nie sú potrebné žiadne premenné prostredia, API kľúče ani ďalšia konfigurácia
-
-Produkčný build:
+Aktuálny návod pre server, migráciu, používateľov a zálohy: [príručka](README.md#getting-started)
 
 ```bash
-npm run build      # výstup do dist/
-npm run preview    # lokálny náhľad buildu
+npm ci
+npm run db:migrate:local
+npm run dev
+# In a second terminal with .dev.vars configured
+npm run pages:dev
 ```
-
-Výstup je statická stránka: GitHub Pages, Netlify, Cloudflare Pages alebo nginx
 
 ---
 
@@ -174,10 +165,7 @@ src/
 
 ## Známe obmedzenia
 
-- **Upozornenia vyžadujú otvorenú kartu alebo aplikáciu** - Service Worker funguje na pozadí, ale nie keď je prehliadač úplne zatvorený
-- **iCal import ignoruje VTIMEZONE** - ak zdrojový súbor používa časy mimo UTC, zobrazenie sa môže líšiť
-- **Žiadna synchronizácia medzi zariadeniami** - IndexedDB je viazaný na prehliadač/aplikáciu
-- **Rozbaľovanie RRULE v pamäti** - veľmi dlhé série môžu spomaliť načítanie širokého rozsahu dátumov
+Obmedzenia: upozornenia vyžadujú otvorenú aplikáciu; zložité importované pravidlá sa zachovajú, ale jednoduchý editor ich neupravuje; nepodporované ICS RANGE výnimky sa odmietnu s chybou
 
 ---
 

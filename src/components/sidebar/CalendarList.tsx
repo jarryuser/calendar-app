@@ -1,3 +1,4 @@
+import { handleAction } from '@/utils/errors'
 import { useState } from 'react'
 import { Plus, MoreHorizontal, Edit2, Trash2, Check, Link, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -23,7 +24,7 @@ function CalendarFormDialog({
   initialName?: string
   initialColor?: CalendarColor
   initialDesc?: string
-  onSave: (name: string, color: CalendarColor, desc: string) => void
+  onSave: (name: string, color: CalendarColor, desc: string) => unknown
   titleKey: 'newCalendar' | 'editCalendar'
 }) {
   const { t } = useTranslation()
@@ -50,6 +51,8 @@ function CalendarFormDialog({
               <button
                 key={c}
                 type="button"
+                aria-label={c}
+                aria-pressed={color === c}
                 onClick={() => setColor(c as CalendarColor)}
                 className="w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110"
                 style={{ backgroundColor: COLOR_HEX[c] }}
@@ -69,7 +72,7 @@ function CalendarFormDialog({
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" size="sm" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button variant="primary" size="sm" onClick={() => { onSave(name, color, desc); onClose() }} disabled={!name.trim()}>
+          <Button variant="primary" size="sm" onClick={handleAction(async () => { await onSave(name, color, desc); onClose() })} disabled={!name.trim()}>
             {t('common.save')}
           </Button>
         </div>
@@ -99,13 +102,13 @@ export function CalendarList() {
         <div className="flex gap-0.5">
           <button
             onClick={() => setShowSubscribe(s => !s)}
-            title="Subscribe to .ics URL"
+            title={t('actions.subscribe')} aria-label={t('actions.subscribe')}
             className="w-5 h-5 flex items-center justify-center rounded hover:bg-[var(--surface-tertiary)] text-[var(--text-tertiary)] transition-colors"
           >
             <Link size={11} />
           </button>
           <button
-            onClick={() => setShowAdd(true)}
+            aria-label={t('actions.calendarName')} onClick={() => setShowAdd(true)}
             className="w-5 h-5 flex items-center justify-center rounded hover:bg-[var(--surface-tertiary)] text-[var(--text-tertiary)] transition-colors"
           >
             <Plus size={13} />
@@ -123,7 +126,7 @@ export function CalendarList() {
             className="w-full h-7 rounded border border-[var(--border)] bg-[var(--surface)] px-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           <input
-            placeholder="Calendar name"
+            placeholder={t('actions.calendarName')}
             value={subscribeName}
             onChange={e => setSubscribeName(e.target.value)}
             className="w-full h-7 rounded border border-[var(--border)] bg-[var(--surface)] px-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -134,7 +137,7 @@ export function CalendarList() {
               if (!subscribeUrl.trim()) return
               setSubscribing(true)
               try {
-                await subscribe(subscribeUrl.trim(), subscribeName.trim() || 'Subscribed Calendar', 'teal')
+                await subscribe(subscribeUrl.trim(), subscribeName.trim() || t('actions.calendarName'), 'teal')
                 setSubscribeUrl('')
                 setSubscribeName('')
                 setShowSubscribe(false)
@@ -146,7 +149,7 @@ export function CalendarList() {
             }}
             className="w-full h-7 rounded bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            {subscribing ? 'Subscribing…' : 'Subscribe'}
+            {t(subscribing ? 'actions.subscribing' : 'actions.subscribe')}
           </button>
           {subscribeError && (
             <p className="text-[10px] text-red-500 leading-snug px-0.5">{subscribeError}</p>
@@ -164,7 +167,9 @@ export function CalendarList() {
             onMouseLeave={e => (e.currentTarget.style.background = '')}
           >
             <button
-              onClick={() => toggleVisibility(cal.id)}
+              aria-label={`${t('actions.visibility')}: ${cal.name}`}
+              aria-pressed={cal.isVisible}
+              onClick={handleAction(() => toggleVisibility(cal.id))}
               className={clsx(
                 'w-[17px] h-[17px] rounded-[5px] flex items-center justify-center shrink-0 transition-all',
               )}
@@ -189,7 +194,7 @@ export function CalendarList() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded hover:bg-[var(--surface-tertiary)] text-[var(--text-tertiary)] transition-all">
+                <button aria-label={t('actions.more')} className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded hover:bg-[var(--surface-tertiary)] text-[var(--text-tertiary)] transition-all">
                   <MoreHorizontal size={13} />
                 </button>
               </DropdownMenuTrigger>
@@ -197,10 +202,10 @@ export function CalendarList() {
                 {cal.subscriptionUrl ? (
                   <DropdownMenuItem
                     icon={<RefreshCw size={13} className={refreshing === cal.id ? 'animate-spin' : ''} />}
-                    onClick={() => refreshSubscription(cal.id)}
+                    onClick={handleAction(() => refreshSubscription(cal.id))}
                     disabled={refreshing === cal.id}
                   >
-                    Refresh
+                    {t('actions.refresh')}
                   </DropdownMenuItem>
                 ) : (
                   <>
@@ -208,14 +213,14 @@ export function CalendarList() {
                       {t('calendarList.edit')}
                     </DropdownMenuItem>
                     {!cal.isDefault && (
-                      <DropdownMenuItem onClick={() => setDefault(cal.id)}>
+                      <DropdownMenuItem onClick={handleAction(() => setDefault(cal.id))}>
                         {t('calendarList.setDefault')}
                       </DropdownMenuItem>
                     )}
                   </>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem icon={<Trash2 size={13} />} destructive onClick={() => remove(cal.id)}>
+                <DropdownMenuItem icon={<Trash2 size={13} />} destructive onClick={handleAction(() => remove(cal.id))}>
                   {t('calendarList.delete')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
